@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pyrevit Audit Dashboards</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+<style>
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; background: #001B49; color: #f9fafb; min-height: 100vh; font-size: 14px; }
+.topbar { background: #0a1f4e; border-bottom: 2px solid #1e3a6e; height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; position: sticky; top: 0; z-index: 200; gap: 12px; }
+.topbar-left { width: 200px; }
+.topbar-center { display: flex; gap: 4px; background: rgba(0,0,0,0.35); border: 1px solid #3b82f6; border-radius: 10px; padding: 5px; box-shadow: 0 0 0 1px rgba(59,130,246,0.15), 0 4px 16px rgba(0,0,0,0.4); }
+.top-nav { padding: 7px 18px; border-radius: 7px; font-size: 12px; font-weight: bold; color: #94a3b8; cursor: pointer; transition: all 0.18s; border: none; background: transparent; white-space: nowrap; }
+.top-nav:hover { color: #f9fafb; background: rgba(255,255,255,0.06); }
+.top-nav.active { background: linear-gradient(135deg,#3b82f6,#1d4ed8); color: #fff; box-shadow: 0 2px 8px rgba(59,130,246,0.5); }
+.topbar-right { width: 200px; display: flex; justify-content: flex-end; align-items: center; }
+.topbar-logo { height: 0px; object-fit: contain; cursor: pointer; }
+.logo-placeholder { height: 38px; width: 120px; border: 1px dashed #1e3a6e; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #4b6a9e; cursor: pointer; position: relative; text-align: center; line-height: 1.3; padding: 0 4px; }
+.logo-placeholder:hover { border-color: #3b82f6; color: #93c5fd; }
+.logo-placeholder input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.sidebar { width: 262px; min-width: 262px; background: #0a1f4e; border-right: 1px solid #1e3a6e; padding: 20px 14px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
+.section-header { font-size: 10px; font-weight: bold; letter-spacing: 0.12em; text-transform: uppercase; color: #4b6a9e; padding: 14px 8px 6px 8px; }
+.folder-box { background: #111827; border: 1px solid #1e3a6e; border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: border-color 0.2s; position: relative; }
+.folder-box:hover { border-color: #3b82f6; }
+.folder-box.loaded { border-color: #22c55e; }
+.folder-box input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.folder-icon { font-size: 18px; flex-shrink: 0; }
+.folder-text { flex: 1; min-width: 0; }
+.folder-label { font-size: 12px; font-weight: bold; color: #cbd5e1; }
+.folder-sub { font-size: 10px; color: #64748b; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.folder-sub.ok { color: #22c55e; }
+.module-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; cursor: pointer; transition: all 0.15s; border-left: 3px solid transparent; color: #94a3b8; font-size: 13px; }
+.module-item:hover { background: rgba(59,130,246,0.07); color: #f9fafb; }
+.module-item.active { background: rgba(59,130,246,0.12); border-left-color: #3b82f6; color: #93c5fd; font-weight: bold; }
+.module-item.disabled { opacity: 0.4; cursor: default; pointer-events: none; }
+.module-icon { width: 22px; text-align: center; font-size: 14px; flex-shrink: 0; }
+.module-label { flex: 1; }
+.module-count { font-size: 10px; background: rgba(0,0,0,0.3); padding: 2px 7px; border-radius: 10px; color: #64748b; font-family: 'Courier New', monospace; }
+.module-item.active .module-count { background: rgba(59,130,246,0.2); color: #93c5fd; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: #374151; }
+.status-dot.ok  { background: #22c55e; }
+.status-dot.err { background: #ef4444; }
+.s-divider { border: none; border-top: 1px solid #1e3a6e; margin: 4px 0; }
+.filter-group { display: flex; flex-direction: column; gap: 8px; padding: 0 2px; }
+.filter-label { font-size: 11px; color: #64748b; }
+.chip-wrap { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip-scroll { max-height: 90px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 4px; background: #111827; border: 1px solid #1e3a6e; border-radius: 7px; padding: 6px; }
+.chip { font-size: 10px; padding: 3px 9px; border-radius: 12px; border: 1px solid #1e3a6e; background: #111827; color: #94a3b8; cursor: pointer; transition: all 0.12s; user-select: none; white-space: nowrap; }
+.chip:hover { border-color: #3b82f6; color: #93c5fd; }
+.chip.active { background: #1e3a6e; border-color: #3b82f6; color: #93c5fd; font-weight: bold; }
+input.f-inp { background: #111827; border: 1px solid #1e3a6e; border-radius: 7px; color: #f9fafb; padding: 6px 9px; font-size: 12px; font-family: Arial, sans-serif; width: 100%; outline: none; }
+input.f-inp:focus { border-color: #3b82f6; }
+.tol-row { display: flex; align-items: center; gap: 8px; }
+.tol-row input { width: 70px; }
+.tol-unit { font-size: 11px; color: #64748b; }
+.btn-clear { background: transparent; border: 1px solid #1e3a6e; color: #94a3b8; padding: 6px 12px; border-radius: 7px; font-size: 11px; cursor: pointer; width: 100%; margin-top: 2px; font-family: Arial, sans-serif; transition: all 0.15s; }
+.btn-clear:hover { border-color: #374151; background: #111827; color: #f9fafb; }
+.main { flex: 1; padding: 24px 28px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; min-width: 0; }
+.kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.kpi { background: #1e293b; border: 1px solid #1e3a6e; border-radius: 10px; padding: 16px 18px; border-top: 3px solid transparent; }
+.kpi.k-blue   { border-top-color: #3b82f6; } .kpi.k-green { border-top-color: #22c55e; }
+.kpi.k-red    { border-top-color: #ef4444; } .kpi.k-purple { border-top-color: #a855f7; }
+.kpi.k-amber  { border-top-color: #f59e0b; }
+.kpi-label { font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; }
+.kpi-val   { font-size: 30px; font-weight: bold; font-family: 'Courier New', monospace; margin: 5px 0 2px; line-height: 1; }
+.kpi.k-blue .kpi-val { color: #3b82f6; } .kpi.k-green .kpi-val { color: #22c55e; }
+.kpi.k-red  .kpi-val { color: #ef4444; } .kpi.k-purple .kpi-val { color: #a855f7; }
+.kpi.k-amber .kpi-val { color: #f59e0b; }
+.kpi-sub { font-size: 11px; color: #4b6a9e; }
+.panel { background: #1e293b; border: 1px solid #1e3a6e; border-radius: 10px; overflow: hidden; }
+.panel-head { background: #0f1f3d; border-bottom: 1px solid #1e3a6e; padding: 13px 18px; display: flex; align-items: center; justify-content: space-between; }
+.panel-title { font-size: 13px; font-weight: bold; color: #cbd5e1; }
+.panel-actions { display: flex; gap: 8px; }
+.btn-sm { background: #374151; color: #f9fafb; border: none; padding: 5px 13px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; font-family: Arial, sans-serif; transition: background 0.15s; }
+.btn-sm:hover { background: #4b5563; }
+.two-col { display: grid; grid-template-columns: 280px 1fr; gap: 14px; align-items: start; }
+.tbl-wrap { overflow-x: auto; max-height: calc(100vh - 320px); overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead th { background: #0f1f3d; padding: 9px 13px; text-align: left; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; border-bottom: 1px solid #1e3a6e; white-space: nowrap; position: sticky; top: 0; z-index: 1; }
+tbody tr { border-bottom: 1px solid rgba(30,58,110,0.4); transition: background 0.1s; }
+tbody tr:hover { background: rgba(59,130,246,0.05); }
+tbody td { padding: 9px 13px; color: #e2e8f0; font-family: 'Courier New', monospace; font-size: 11px; white-space: nowrap; }
+tbody td.str { font-family: Arial, sans-serif; font-size: 12px; }
+.pill { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; font-family: Arial, sans-serif; }
+.p-pass { background: rgba(34,197,94,0.12);  color: #22c55e; }
+.p-fail { background: rgba(239,68,68,0.12);   color: #ef4444; }
+.p-miss { background: rgba(168,85,247,0.12);  color: #a855f7; }
+.p-warn { background: rgba(245,158,11,0.12);  color: #f59e0b; }
+.p-host { background: rgba(100,116,139,0.12); color: #94a3b8; }
+.d-ok { color: #22c55e; } .d-warn { color: #f59e0b; } .d-fail { color: #ef4444; }
+.p-review { background: rgba(245,158,11,0.12); color: #f59e0b; }
+.p-na     { background: rgba(100,116,139,0.08); color: #4b6a9e; }
+.p-untick { background: rgba(239,68,68,0.08); color: #fca5a5; }
+.empty { padding: 48px 20px; text-align: center; color: #4b6a9e; }
+.empty-icon { font-size: 28px; margin-bottom: 8px; opacity: 0.5; }
+.empty-title { font-size: 13px; font-weight: bold; color: #64748b; margin-bottom: 4px; }
+.empty-sub { font-size: 11px; }
+.tab-view { display: none; flex-direction: column; gap: 18px; }
+.tab-view.active { display: flex; }
+.idle-screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 60px 20px; text-align: center; }
+.idle-icon { font-size: 48px; opacity: 0.2; }
+.idle-title { font-size: 18px; font-weight: bold; color: #4b6a9e; }
+.idle-sub { font-size: 13px; color: #374151; max-width: 380px; line-height: 1.6; }
+.placeholder-panel { background: #1e293b; border: 1px dashed #1e3a6e; border-radius: 10px; padding: 36px 20px; text-align: center; color: #4b6a9e; }
+.placeholder-panel .ph-icon { font-size: 28px; margin-bottom: 10px; opacity: 0.4; }
+.placeholder-panel .ph-title { font-size: 13px; font-weight: bold; color: #64748b; }
+.page-placeholder { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: #4b6a9e; text-align: center; padding: 60px; }
+.page-placeholder .ph-big { font-size: 52px; opacity: 0.15; }
+.page-placeholder h2 { font-size: 20px; color: #64748b; font-weight: bold; }
+.page-placeholder p { font-size: 13px; color: #374151; max-width: 340px; line-height: 1.6; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1e3a6e; border-radius: 3px; }
+@media print { .topbar, .sidebar, .idle-screen, #pdfModal { display: none !important; } }
+
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-left" style="display:flex;align-items:center;min-width:0;">
+    <div class="folder-box" id="folderBox" title="Bulk load all reports from Folder" style="padding:6px 10px;border-radius:8px;background:#111827;border:1px solid #1e3a6e;display:flex;align-items:center;gap:8px;cursor:pointer;position:relative;transition:border-color 0.2s;white-space:nowrap;">
+      <input type="file" webkitdirectory onchange="handleFolderLoad(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;">
+      <span style="font-size:16px;">📁</span>
+      <div>
+        <div style="font-size:11px;font-weight:bold;color:#cbd5e1;">Bulk Load Folder</div>
+        <div style="font-size:9px;color:#64748b;" id="folderSub">All reports from folder</div>
+      </div>
+    </div>
+  </div>
+  <div class="topbar-center" style="border:none;background:transparent;box-shadow:none;">
+    <span style="font-size:22px;font-weight:bold;color:#f9fafb;letter-spacing:0.02em;">   Pyrevit Audit Dashboards</span>
+  </div>
+  <div class="topbar-right" style="display:flex;align-items:center;gap:10px;min-width:0;">
+    <button onclick="openBulkPdfModal()" style="background:linear-gradient(135deg,#1e3a6e,#0f1f3d);border:1px solid #3b82f6;color:#93c5fd;padding:6px 14px;border-radius:8px;font-size:11px;font-weight:bold;cursor:pointer;white-space:nowrap;font-family:Arial,sans-serif;">⬇ Bulk PDF</button>
+    <img class="topbar-logo" src="sarah-white-logo.png" alt="Logo" onerror="this.style.display='none'">
+  </div>
+</div>
+
+<!-- PAGE: AUDIT -->
+<div id="page-audit" style="display:flex; min-height:calc(100vh - 58px);">
+
+  <aside class="sidebar">
+    <div class="section-header">Data Source</div>
+
+    <div class="folder-box" id="exportBox" title="Select BEP_Audit_Export.xlsx">
+      <input type="file" accept=".xlsx" onchange="handleExportFile(event)">
+      <div class="folder-icon">📊</div>
+      <div class="folder-text">
+        <div class="folder-label">Load Export File</div>
+        <div class="folder-sub" id="exportSub">BEP_Audit_Export.xlsx</div>
+      </div>
+    </div>
+
+    <div class="folder-box" id="baselineBox" style="margin-top:2px;" title="Optional: baseline_audit.xlsx">
+      <input type="file" accept=".xlsx" onchange="handleBaselineFile(event)">
+      <div class="folder-icon">📋</div>
+      <div class="folder-text">
+        <div class="folder-label">Load Baseline (optional)</div>
+        <div class="folder-sub" id="baselineSub">baseline_audit.xlsx</div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:3px;padding:4px 8px;">
+      <div style="display:flex;align-items:center;gap:7px;">
+        <div class="status-dot" id="dot-export"></div>
+        <span style="font-size:10px;color:#64748b;" id="lbl-export">Export: not loaded</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;">
+        <div class="status-dot" id="dot-baseline"></div>
+        <span style="font-size:10px;color:#64748b;" id="lbl-baseline">Baseline: not loaded</span>
+      </div>
+    </div>
+
+    <hr class="s-divider">
+    <div class="section-header">Audit Modules</div>
+    <div class="module-item active" id="mod-grids" onclick="switchModule('grids',this)"><span class="module-icon">⊞</span><span class="module-label">Grids</span><span class="module-count" id="cnt-grids">—</span></div>
+    <div class="module-item" id="mod-levels" onclick="switchModule('levels',this)"><span class="module-icon">≡</span><span class="module-label">Levels</span><span class="module-count" id="cnt-levels">—</span></div>
+    <div class="module-item" id="mod-coordinates" onclick="switchModule('coordinates',this)"><span class="module-icon">⊕</span><span class="module-label">Coordinates</span><span class="module-count" id="cnt-coords">—</span></div>
+    <div class="module-item" id="mod-filename" onclick="switchModule('filename',this)"><span class="module-icon">🏷</span><span class="module-label">File Name Check</span><span class="module-count" id="cnt-filename">—</span></div>
+    <div class="module-item disabled" style="opacity:0.3;"><span class="module-icon">◫◷</span><span class="module-label">Worksets &amp; Phases</span><span class="module-count" id="cnt-worksets" style="display:none">—</span><span class="module-count" id="cnt-phases" style="display:none">—</span><span class="module-count">Soon</span></div>
+    <div class="module-item disabled"><span class="module-icon">⚙</span><span class="module-label">Project Parameters</span><span class="module-count">Soon</span></div>
+    <div class="module-item disabled"><span class="module-icon">☁</span><span class="module-label">ACC Sync</span><span class="module-count">Soon</span></div>
+
+    <hr class="s-divider">
+    <div class="section-header">Filters</div>
+    <div class="filter-group">
+
+      <div class="filter-label">Precinct</div>
+      <div class="chip-scroll" id="chipBuilding"><span style="font-size:10px;color:#374151">Load baseline to populate</span></div>
+
+      <div class="filter-label">Source Model</div>
+      <div class="chip-scroll" id="chipModel"><span style="font-size:10px;color:#374151">Load export to populate</span></div>
+
+      <div class="filter-label">Status</div>
+      <div class="chip-wrap" id="chipStatus"></div>
+
+      <div class="filter-label">Search</div>
+      <input class="f-inp" id="filterSearch" type="text" placeholder="Grid name, model..." oninput="applyFilters()">
+
+      <div class="filter-label">Position Tolerance</div>
+      <div class="tol-row">
+        <input class="f-inp" id="tolerance" type="number" value="1" min="0.1" step="0.1" onchange="runAudit()">
+        <span class="tol-unit">mm</span>
+      </div>
+      <div class="filter-label">Angle Tolerance</div>
+      <div class="tol-row">
+        <input class="f-inp" id="angleTolerance" type="number" value="0.01" min="0.001" step="0.001" onchange="runAudit()">
+        <span class="tol-unit">deg</span>
+      </div>
+
+      <button class="btn-clear" onclick="clearFilters()">✕  Clear Filters</button>
+    </div>
+  </aside>
+
+  <main class="main" id="auditMain">
+
+    <div class="idle-screen" id="idleScreen">
+      <div class="idle-icon">📂</div>
+      <div class="idle-title">No Data Loaded</div>
+      <div class="idle-sub">Select a source folder or load <strong>BEP_Audit_Export.xlsx</strong> to begin. The baseline file is optional — when loaded, column D of each sheet provides the expected grid list.</div>
+    </div>
+
+    <div id="auditContent" style="display:none; flex-direction:column; gap:20px;">
+
+      <!-- GRIDS TAB -->
+      <div class="tab-view active" id="tab-grids">
+        <div class="kpi-row">
+          <div class="kpi k-blue"><div class="kpi-label">Total Checks</div><div class="kpi-val" id="kpi-total">—</div><div class="kpi-sub">link grids audited</div></div>
+          <div class="kpi k-green"><div class="kpi-label">Pass</div><div class="kpi-val" id="kpi-pass">—</div><div class="kpi-sub">within tolerance</div></div>
+          <div class="kpi k-red"><div class="kpi-label">Fail</div><div class="kpi-val" id="kpi-fail">—</div><div class="kpi-sub">exceeds tolerance</div></div>
+          <div class="kpi k-purple"><div class="kpi-label">Missing</div><div class="kpi-val" id="kpi-missing">—</div><div class="kpi-sub">not in model</div></div>
+          <div class="kpi k-amber"><div class="kpi-label">Added</div><div class="kpi-val" id="kpi-added">—</div><div class="kpi-sub">in link, not in baseline</div></div>
+        </div>
+        <div class="two-col">
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Pass / Fail Split</div></div>
+            <div id="chartDonut" style="height:240px;"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">⊞ Grid Audit Results</div>
+              <div class="panel-actions">
+                <button class="btn-sm" onclick="exportCSV('gridsTable','grids_audit')">⬇ CSV</button>
+                <button class="btn-sm" onclick="openPdfModal()" style="background:#1e3a6e;">⬇ PDF</button>
+              </div>
+            </div>
+            <div class="tbl-wrap">
+              <table id="gridsTable">
+                <thead><tr>
+                  <th>Status</th><th>Source Model</th><th>Grid Name</th>
+                  <th>ΔEast (mm)</th><th>ΔNorth (mm)</th><th>ΔPos (mm)</th><th>ΔAngle (°)</th>
+                </tr></thead>
+                <tbody id="gridsBody">
+                  <tr><td colspan="7"><div class="empty"><div class="empty-icon">⊞</div><div class="empty-title">No grid data loaded</div></div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LEVELS TAB -->
+      <div class="tab-view" id="tab-levels">
+        <div id="levelsKpiRow">
+          <div style="background:#1e293b;border:1px solid #1e3a6e;border-radius:10px;padding:18px 22px;text-align:center;color:#4b6a9e;font-size:13px;" id="levelsKpiPlaceholder">Load Baseline file to see metrics</div>
+          <div class="kpi-row" id="levelsKpiCards" style="display:none;">
+            <div class="kpi k-blue"><div class="kpi-label">Total Levels</div><div class="kpi-val" id="lkpi-total">—</div><div class="kpi-sub">in export</div></div>
+            <div class="kpi k-green"><div class="kpi-label">Pass</div><div class="kpi-val" id="lkpi-pass">—</div><div class="kpi-sub">name + elevation match</div></div>
+            <div class="kpi k-amber"><div class="kpi-label">Review</div><div class="kpi-val" id="lkpi-review">—</div><div class="kpi-sub">one mismatch</div></div>
+            <div class="kpi k-red"><div class="kpi-label">Fail</div><div class="kpi-val" id="lkpi-fail">—</div><div class="kpi-sub">both mismatch</div></div>
+            <div class="kpi k-purple"><div class="kpi-label">Untick</div><div class="kpi-val" id="lkpi-untick">—</div><div class="kpi-sub">Building Storey flag</div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">≡ Level Audit</div><div class="panel-actions"><button class="btn-sm" onclick="exportCSV('levelsTable','levels_audit')">⬇ CSV</button></div></div>
+          <div class="tbl-wrap"><table id="levelsTable">
+            <thead><tr><th>Status</th><th>Source Model</th><th>Level Name</th><th>Export Elev (mm)</th><th>Baseline Elev (mm)</th><th>Elevation Base</th><th>Building Storey</th></tr></thead>
+            <tbody id="levelsBody"><tr><td colspan="7"><div class="empty"><div class="empty-icon">≡</div><div class="empty-title">No level data loaded</div></div></td></tr></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- COORDINATES TAB -->
+      <div class="tab-view" id="tab-coordinates">
+        <div id="coordsKpiRow" style="margin-bottom:4px;">
+          <div style="background:#1e293b;border:1px solid #1e3a6e;border-radius:10px;padding:18px 22px;text-align:center;color:#4b6a9e;font-size:13px;" id="coordsKpiPlaceholder">Load Baseline file to see metrics</div>
+          <div class="kpi-row" id="coordsKpiCards" style="display:none;">
+            <div class="kpi k-blue"><div class="kpi-label">Total Models</div><div class="kpi-val" id="ckpi-total">—</div><div class="kpi-sub">in export</div></div>
+            <div class="kpi k-green"><div class="kpi-label">Pass</div><div class="kpi-val" id="ckpi-pass">—</div><div class="kpi-sub">within tolerance</div></div>
+            <div class="kpi k-red"><div class="kpi-label">Fail</div><div class="kpi-val" id="ckpi-fail">—</div><div class="kpi-sub">outside tolerance</div></div>
+            <div class="kpi k-purple"><div class="kpi-label">NA</div><div class="kpi-val" id="ckpi-na">—</div><div class="kpi-sub">no baseline match</div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">⊕ Coordinate Audit</div><div class="panel-actions"><button class="btn-sm" onclick="exportCSV('coordsTable','coords_audit')">⬇ CSV</button></div></div>
+          <div class="tbl-wrap"><table id="coordsTable">
+            <thead><tr><th>Status</th><th>Model Title</th><th>Project Location</th><th>IO East (mm)</th><th>IO North (mm)</th><th>IO Elev (mm)</th><th>Angle TN (°)</th></tr></thead>
+            <tbody id="coordsBody"><tr><td colspan="7"><div class="empty"><div class="empty-icon">⊕</div><div class="empty-title">No coordinate data loaded</div></div></td></tr></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- FILE NAME CHECK TAB -->
+      <div class="tab-view" id="tab-filename">
+        <div id="fnKpiRow" style="margin-bottom:4px;">
+          <div style="background:#1e293b;border:1px solid #1e3a6e;border-radius:10px;padding:18px 22px;text-align:center;color:#4b6a9e;font-size:13px;" id="fnKpiPlaceholder">Load Baseline file to see metrics</div>
+          <div class="kpi-row" id="fnKpiCards" style="display:none;">
+            <div class="kpi k-blue"><div class="kpi-label">Total Checked</div><div class="kpi-val" id="fnkpi-total">—</div><div class="kpi-sub">expected files</div></div>
+            <div class="kpi k-green"><div class="kpi-label">Pass</div><div class="kpi-val" id="fnkpi-pass">—</div><div class="kpi-sub">exact match</div></div>
+            <div class="kpi k-amber"><div class="kpi-label">Review</div><div class="kpi-val" id="fnkpi-review">—</div><div class="kpi-sub">approx match</div></div>
+            <div class="kpi k-red"><div class="kpi-label">Fail</div><div class="kpi-val" id="fnkpi-fail">—</div><div class="kpi-sub">no match</div></div>
+            <div class="kpi k-purple"><div class="kpi-label">Not Found</div><div class="kpi-val" id="fnkpi-notfound">—</div><div class="kpi-sub">model missing</div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">🏷 File Name Check</div><div class="panel-actions"><button class="btn-sm" onclick="exportCSV('filenameTable','filename_audit')">⬇ CSV</button></div></div>
+          <div class="tbl-wrap"><table id="filenameTable">
+            <thead><tr><th>Status</th><th>Precinct</th><th>Expected (BEP)</th><th>Matched SourceModel</th></tr></thead>
+            <tbody id="filenameBody"><tr><td colspan="4"><div class="empty"><div class="empty-icon">🏷</div><div class="empty-title">No data loaded</div><div class="empty-sub">Load baseline_audit.xlsx to run file name checks</div></div></td></tr></tbody>
+          </table></div>
+        </div>
+        <div class="panel" style="margin-top:14px;">
+          <div class="panel-head"><div class="panel-title">Loaded Source Models</div></div>
+          <div class="tbl-wrap"><table id="loadedModelsTable">
+            <thead><tr><th>#</th><th>Source Model (from Export)</th></tr></thead>
+            <tbody id="loadedModelsBody"><tr><td colspan="2"><div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Load export file to see models</div></div></td></tr></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- WORKSETS & PHASES (combined, coming soon) -->
+      <div class="tab-view" id="tab-acc"><div class="placeholder-panel"><div class="ph-icon">☁</div><div class="ph-title">ACC Sync — Coming Soon</div></div></div>
+      <div class="tab-view" id="tab-params"><div class="placeholder-panel"><div class="ph-icon">⚙</div><div class="ph-title">Project Parameters — Coming Soon</div></div></div>
+
+    </div>
+  </main>
+</div>
+
+
+<!-- MODALS -->
+<div id="bulkPdfModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:#0a1f4e;border:1px solid #1e3a6e;border-radius:12px;padding:28px 32px;width:400px;">
+    <div style="font-size:15px;font-weight:bold;color:#f9fafb;margin-bottom:4px;">Generate Bulk PDF Report</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:18px;">Select sections to include. Each starts on a new page.</div>
+    <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:6px;">Project Name</label>
+    <input id="bulkPdfProjectName" type="text" placeholder="Enter Project Name" style="width:100%;background:#111827;border:1px solid #1e3a6e;border-radius:7px;color:#f9fafb;padding:8px 12px;font-size:13px;font-family:Arial,sans-serif;outline:none;box-sizing:border-box;margin-bottom:16px;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#1e3a6e'">
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:10px;">Sections</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:12px;color:#cbd5e1;"><input type="checkbox" value="grids" checked style="accent-color:#3b82f6;width:14px;height:14px;"> Grids</label>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:12px;color:#cbd5e1;"><input type="checkbox" value="levels" checked style="accent-color:#3b82f6;width:14px;height:14px;"> Levels</label>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:12px;color:#cbd5e1;"><input type="checkbox" value="coords" style="accent-color:#3b82f6;width:14px;height:14px;"> Coordinates</label>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:12px;color:#cbd5e1;"><input type="checkbox" value="filename" style="accent-color:#3b82f6;width:14px;height:14px;"> File Name Check</label>
+      
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="closeBulkPdfModal()" style="background:transparent;border:1px solid #1e3a6e;color:#94a3b8;padding:7px 18px;border-radius:7px;font-size:12px;cursor:pointer;font-family:Arial,sans-serif;">Cancel</button>
+      <button onclick="generateBulkPDF()" style="background:#3b82f6;border:none;color:#fff;padding:7px 20px;border-radius:7px;font-size:12px;font-weight:bold;cursor:pointer;font-family:Arial,sans-serif;">Generate PDF</button>
+    </div>
+
+
+<div id="pdfModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999;align-items:center;justify-content:center;">
+  <div style="background:#0a1f4e;border:1px solid #1e3a6e;border-radius:12px;padding:28px 32px;width:380px;">
+    <div style="font-size:15px;font-weight:bold;color:#f9fafb;margin-bottom:6px;">Generate PDF Report</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:20px;">Report will include only the currently filtered rows.</div>
+    <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:6px;">Project Name</label>
+    <input id="pdfProjectName" type="text" placeholder="e.g. NNSHS Stage 2" style="width:100%;background:#111827;border:1px solid #1e3a6e;border-radius:7px;color:#f9fafb;padding:8px 12px;font-size:13px;font-family:Arial,sans-serif;outline:none;box-sizing:border-box;" onkeydown="if(event.key==='Enter')generatePDF()" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#1e3a6e'">
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+      <button onclick="closePdfModal()" style="background:transparent;border:1px solid #1e3a6e;color:#94a3b8;padding:7px 18px;border-radius:7px;font-size:12px;cursor:pointer;font-family:Arial,sans-serif;">Cancel</button>
+      <button onclick="generatePDF()" style="background:#3b82f6;border:none;color:#fff;padding:7px 20px;border-radius:7px;font-size:12px;font-weight:bold;cursor:pointer;font-family:Arial,sans-serif;">Generate PDF</button>
+    </div>
+
+
+<script>
+// ── STATE ─────────────────────────────────────────────
+let baselineData    = null;
+let exportData      = null;
+let baselineRaw     = {};
+let baselineGrids   = new Set();
+let auditResults    = { grids:[], levels:[], coords:[], filename:[] };
+let filteredResults = { grids:[], levels:[], coords:[], filename:[] };
+let activeModule    = 'grids';
+let selModels       = new Set();
+let selStatuses     = new Set();
+let selBuildings    = new Set();
+
+function switchPage(name, btn) {
+  document.querySelectorAll('.top-nav').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  ['audit','health','growth'].forEach(p => {
+    document.getElementById('page-'+p).style.display = p===name ? 'flex' : 'none';
+  });
+  const p2d = document.getElementById('page-audit2d');
+  if(p2d) { if(name==='audit2d') init2dPage(); p2d.style.display = name==='audit2d' ? 'flex' : 'none'; }
+}
+const MODULE_STATUSES = {
+  grids:       [['','All'],['PASS','Pass'],['FAIL','Fail'],['MISSING','Missing'],['ADDED','Added']],
+  levels:      [['','All'],['PASS','Pass'],['FAIL','Fail'],['REVIEW','Review'],['UNTICK BUILDING STOREY','Untick Bldg Storey'],['NA','NA']],
+  coordinates: [['','All'],['PASS','Pass'],['FAIL','Fail'],['NA','NA']],
+  filename:    [['','All'],['PASS','Pass'],['REVIEW','Review'],['FAIL','Fail'],['NOT FOUND','Not Found']],
+};
+function buildStatusChips(module) {
+  selStatuses.clear();
+  const statuses = MODULE_STATUSES[module] || [['','All'],['PASS','Pass'],['FAIL','Fail']];
+  const w = document.getElementById('chipStatus');
+  w.innerHTML = '';
+  statuses.forEach(([val, label], i) => {
+    const c = document.createElement('span');
+    c.className = 'chip' + (i===0?' active':'');
+    c.dataset.val = val; c.textContent = label;
+    c.onclick = () => toggleStatusChip(c, val);
+    w.appendChild(c);
+  });
+}
+function switchModule(name, el) {
+  document.querySelectorAll('.module-item').forEach(m => m.classList.remove('active'));
+  el.classList.add('active');
+  activeModule = name;
+  document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
+  const tv = document.getElementById('tab-'+name);
+  if (tv) tv.classList.add('active');
+  buildStatusChips(name);
+  applyFilters();
+}
+
+// ── FILE LOADING ───────────────────────────────────────────────────────────
+function readXlsx(file, cb) {
+  const r = new FileReader();
+  r.onload = e => {
+    const wb = XLSX.read(e.target.result, { type:'array' });
+    const d = {}, raw = {};
+    wb.SheetNames.forEach(n => {
+      d[n]   = XLSX.utils.sheet_to_json(wb.Sheets[n], { defval:'' });
+      raw[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], { header:1, defval:'' });
+    });
+    cb(d, file.name, raw);
+  };
+  r.readAsArrayBuffer(file);
+}
+
+function applyExportData(data, fname) {
+  exportData = data;
+  setDot('dot-export','ok');
+  document.getElementById('lbl-export').textContent = 'Export: ' + fname;
+  document.getElementById('lbl-export').style.color = '#22c55e';
+  document.getElementById('exportSub').textContent  = fname;
+  document.getElementById('exportSub').className    = 'folder-sub ok';
+  document.getElementById('exportBox').classList.add('loaded');
+  buildModelChips();
+  document.getElementById('idleScreen').style.display   = 'none';
+  document.getElementById('auditContent').style.display = 'flex';
+  buildStatusChips(activeModule);
+  // setTimeout gives the browser time to compute flex layout before Plotly renders
+  setTimeout(runAudit, 80);
+}
+
+function applyBaselineData(data, fname, raw) {
+  baselineData = data;
+  baselineRaw  = raw || {};
+  // Parse expected grid labels from column D (index 3) of each sheet
+  baselineGrids = new Set();
+  Object.values(data).forEach(rows => {
+    rows.forEach(row => {
+      const label = Object.values(row)[3];
+      if (label && String(label).trim())
+        baselineGrids.add(normKey(String(label)));
+    });
+  });
+  setDot('dot-baseline','ok');
+  document.getElementById('lbl-baseline').textContent = 'Baseline: ' + fname;
+  document.getElementById('lbl-baseline').style.color = '#22c55e';
+  document.getElementById('baselineSub').textContent  = fname;
+  document.getElementById('baselineSub').className    = 'folder-sub ok';
+  document.getElementById('baselineBox').classList.add('loaded');
+  buildBuildingChips(Object.keys(data));
+  if (exportData) setTimeout(runAudit, 80);
+}
+
+function handleExportFile(e)   { const f=e.target.files[0]; if(f) readXlsx(f, applyExportData); }
+function handleBaselineFile(e) { const f=e.target.files[0]; if(f) readXlsx(f, applyBaselineData); }
+
+function handleFolderLoad(e) {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  const folder = files[0].webkitRelativePath ? files[0].webkitRelativePath.split('/')[0] : 'folder';
+  document.getElementById('folderSub').textContent = folder;
+  document.getElementById('folderSub').className = 'folder-sub ok';
+  document.getElementById('folderBox').classList.add('loaded');
+  const exp  = files.find(f => f.name.toLowerCase().includes('bep_audit_export'));
+  const base = files.find(f => f.name.toLowerCase().includes('baseline_audit'));
+  if (exp)   readXlsx(exp,  applyExportData);
+  else       setDot('dot-export','err');
+  if (base)  readXlsx(base, applyBaselineData);
+}
+
+function setDot(id, state) { const el=document.getElementById(id); if(el) el.className='status-dot'+(state?' '+state:''); }
+
+// ── CHIP FILTERS ───────────────────────────────────────────────────────────
+function buildBuildingChips(names) {
+  const w = document.getElementById('chipBuilding');
+  w.innerHTML = '';
+  names.forEach(n => {
+    const c = document.createElement('span');
+    c.className='chip'; c.dataset.val=n; c.textContent=n;
+    c.onclick = () => { c.classList.toggle('active'); if(c.classList.contains('active')) selBuildings.add(n); else selBuildings.delete(n); applyFilters(); };
+    w.appendChild(c);
+  });
+}
+
+function buildModelChips() {
+  const sheet  = exportData['Grids'] || exportData['grids'] || [];
+  const models = [...new Set(sheet.map(r=>r['SourceModel']).filter(Boolean))];
+  const w = document.getElementById('chipModel');
+  w.innerHTML = '';
+  selModels.clear();
+  models.forEach(m => {
+    const c = document.createElement('span');
+    c.className='chip'; c.dataset.val=m; c.textContent=m;
+    c.onclick = () => { c.classList.toggle('active'); if(c.classList.contains('active')) selModels.add(m); else selModels.delete(m); applyFilters(); };
+    w.appendChild(c);
+  });
+}
+
+function toggleStatusChip(chip, val) {
+  if (val === '') {
+    selStatuses.clear();
+    document.querySelectorAll('#chipStatus .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+  } else {
+    document.querySelector('#chipStatus .chip[data-val=""]').classList.remove('active');
+    chip.classList.toggle('active');
+    if (chip.classList.contains('active')) selStatuses.add(val); else selStatuses.delete(val);
+    if (selStatuses.size === 0) document.querySelector('#chipStatus .chip[data-val=""]').classList.add('active');
+  }
+  applyFilters();
+}
+
+function clearFilters() {
+  selModels.clear(); selStatuses.clear(); selBuildings.clear();
+  document.querySelectorAll('#chipModel .chip, #chipBuilding .chip').forEach(c => c.classList.remove('active'));
+  buildStatusChips(activeModule);
+  document.getElementById('filterSearch').value = '';
+  applyFilters();
+}
+
+// ── AUDIT ENGINE ───────────────────────────────────────────────────────────
+function normKey(s) {
+  return String(s||'').trim().toUpperCase()
+    .replace(/[\s\u2800\u200b\u200c\u200d\u00a0\ufeff]+/g,'')
+    .replace(/[.\-]/g,'');
+}
+
+function runAudit() {
+  if (!exportData) return;
+  auditResults.grids    = auditGrids();
+  auditResults.levels   = auditLevels();
+  auditResults.coords   = auditCoords();
+  auditResults.filename = auditFilenames();
+  updateKPIs();
+  applyFilters();
+  renderDonut();
+}
+
+function auditGrids() {
+  const sheet  = exportData['Grids'] || exportData['grids'] || [];
+  const tol    = parseFloat(document.getElementById('tolerance').value)    || 1.0;
+  const angTol = parseFloat(document.getElementById('angleTolerance').value) || 0.01;
+  const useBase = baselineGrids.size > 0;
+  return sheet.filter(r => r['SourceModel'] && r['ModelScope'] !== 'Host').map(r => {
+    const st  = (r['Status']||'').toUpperCase();
+    const key = normKey(r['GridName']);
+    // When baseline loaded: grids NOT in baseline column D are flagged ADDED
+    if (useBase && !baselineGrids.has(key) && st !== 'MISSING') return {...r, _status:'ADDED'};
+    if (st==='ADDED')   return {...r, _status:'ADDED'};
+    if (st==='MISSING') return {...r, _status:'MISSING'};
+    const dpos = parseFloat(r['Delta_Pos_mm']);
+    const dang = parseFloat(r['Delta_Angle_deg']);
+    if (isNaN(dpos)) return {...r, _status:'MISSING'};
+    return {...r, _status: (dpos>tol || (!isNaN(dang) && dang>angTol)) ? 'FAIL' : 'PASS'};
+  });
+}
+
+function parseElevMm(val) {
+  if (val===''||val===null||val===undefined) return NaN;
+  let s = String(val).trim().toLowerCase().replace(/,/g,'');
+  if (s.endsWith('mm')) return parseFloat(s.slice(0,-2).trim());
+  if (s.endsWith('m'))  return parseFloat(s.slice(0,-1).trim()) * 1000;
+  return parseFloat(s);
+}
+function auditLevels() {
+  const sheet = (exportData['Levels']||exportData['levels']||[]).filter(r=>r['SourceModel']);
+  if (!baselineData) return sheet.map(r => ({ ...r, _status:'NA' }));
+  const baseMap = new Map();
+  Object.values(baselineData).forEach(rows => {
+    rows.forEach(row => {
+      const vals = Object.values(row);
+      const nameE = String(vals[4]||'').trim();
+      const elevF = vals[5];
+      if (nameE) baseMap.set(nameE.toLowerCase(), { name:nameE, elev:elevF });
+    });
+  });
+  return sheet.map(r => {
+    const levelName = String(r['Level Name']||'').trim();
+    const baseEntry = baseMap.get(levelName.toLowerCase());
+    if (!baseEntry) {
+      const storey = String(r['Param_BuildingStorey']||'').trim().toLowerCase();
+      if (storey==='yes') return { ...r, _status:'UNTICK BUILDING STOREY' };
+      return { ...r, _status:'NA' };
+    }
+    const exportElev = parseElevMm(r['Param_Elevation']);
+    const baseElev   = parseElevMm(baseEntry.elev);
+    const elevMatch  = !isNaN(exportElev) && !isNaN(baseElev) && Math.abs(exportElev-baseElev)<=1.0;
+    if (elevMatch)  return { ...r, _status:'PASS',   _baseElev:baseElev };
+    return { ...r, _status:'REVIEW', _baseElev:baseElev };
+  });
+}
+
+function auditCoords() {
+  const sheet = (exportData['Coordinates']||exportData['coordinates']||[]).filter(r=>r['ModelTitle']);
+  if (!baselineData) return sheet.map(r => ({ ...r, _status:'NA' }));
+  const coordMap = new Map();
+  Object.entries(baselineRaw).forEach(([sheetName, rows]) => {
+    const bEast  = parseFloat(String(rows[1]?.[5]||''));
+    const bNorth = parseFloat(String(rows[2]?.[5]||''));
+    const bElev  = parseFloat(String(rows[3]?.[5]||''));
+    const bAngle = parseFloat(String(rows[4]?.[5]||''));
+    rows.forEach((row, rowIdx) => {
+      if (rowIdx===0) return;
+      const name = String(row[0]||'').trim();
+      if (name) coordMap.set(name.toLowerCase(), { east:bEast, north:bNorth, elev:bElev, angle:bAngle });
+    });
+  });
+  const angTol = parseFloat(document.getElementById('angleTolerance').value)||0.01;
+  return sheet.map(r => {
+    const key = String(r['ModelTitle']||'').trim().toLowerCase();
+    const exp = coordMap.get(key);
+    if (!exp) return { ...r, _status:'NA' };
+    const ioE=parseFloat(r['PL_East_mm']), ioN=parseFloat(r['PL_North_mm']);
+    const ioZ=parseFloat(r['PL_Elevation_mm']), ioA=parseFloat(r['PL_TrueNorth_deg']);
+    const tol=1.0;
+    const eOk=!isNaN(ioE)&&!isNaN(exp.east) &&Math.abs(ioE-exp.east) <=tol;
+    const nOk=!isNaN(ioN)&&!isNaN(exp.north)&&Math.abs(ioN-exp.north)<=tol;
+    const zOk=!isNaN(ioZ)&&!isNaN(exp.elev) &&Math.abs(ioZ-exp.elev) <=tol;
+    const aOk=!isNaN(ioA)&&!isNaN(exp.angle)&&Math.abs(ioA-exp.angle)<=angTol;
+    return { ...r, _status:(eOk&&nOk&&zOk&&aOk)?'PASS':'FAIL', _eOk:eOk,_nOk:nOk,_zOk:zOk,_aOk:aOk };
+  });
+}
+
+function stripExt(s) { return String(s||'').replace(/\.[^.]+$/, '').trim(); }
+function auditFilenames() {
+  if (!baselineData||!exportData) return [];
+  const sourceModels = [...new Set((exportData['Grids']||exportData['grids']||[]).map(r=>r['SourceModel']).filter(Boolean))];
+  const rows = [];
+  Object.entries(baselineRaw).forEach(([sheetName, rawRows]) => {
+    rawRows.forEach((row, rowIdx) => {
+      if (rowIdx===0) return;
+      const expected = String(row[0]||'').trim();
+      if (!expected) return;
+      const exactMatch = sourceModels.find(m => m.trim()===expected);
+      if (exactMatch) { rows.push({_status:'PASS',  _precinct:sheetName, _expected:expected, _matched:exactMatch}); return; }
+      const expNoExt = stripExt(expected).toLowerCase();
+      const approx = sourceModels.find(m => stripExt(m).toLowerCase()===expNoExt);
+      if (approx) { rows.push({_status:'REVIEW', _precinct:sheetName, _expected:expected, _matched:approx}); return; }
+      rows.push({_status:'NOT FOUND', _precinct:sheetName, _expected:expected, _matched:'— Not Found'});
+    });
+  });
+  return rows;
+}
+
+// ── KPIs ───────────────────────────────────────────────────────────────────
+function updateKPIs(data) {
+  data = data || auditResults;
+  const g = data.grids;
+  const _e_kpi_total=document.getElementById('kpi-total'); if(_e_kpi_total) _e_kpi_total.textContent=g.length||'—';
+  const _e_kpi_pass=document.getElementById('kpi-pass'); if(_e_kpi_pass) _e_kpi_pass.textContent=g.filter(r=>r._status==='PASS').length;
+  const _e_kpi_fail=document.getElementById('kpi-fail'); if(_e_kpi_fail) _e_kpi_fail.textContent=g.filter(r=>r._status==='FAIL').length;
+  const _e_kpi_missing=document.getElementById('kpi-missing'); if(_e_kpi_missing) _e_kpi_missing.textContent=g.filter(r=>r._status==='MISSING').length;
+  const _e_kpi_added=document.getElementById('kpi-added'); if(_e_kpi_added) _e_kpi_added.textContent=g.filter(r=>r._status==='ADDED').length;
+  const _e_cnt_grids=document.getElementById('cnt-grids'); if(_e_cnt_grids) _e_cnt_grids.textContent=auditResults.grids.length||'—';
+  const _e_cnt_levels=document.getElementById('cnt-levels'); if(_e_cnt_levels) _e_cnt_levels.textContent=auditResults.levels.length||'—';
+  const _e_cnt_coords=document.getElementById('cnt-coords'); if(_e_cnt_coords) _e_cnt_coords.textContent=auditResults.coords.length||'—';
+  const _e_cnt_filename=document.getElementById('cnt-filename'); if(_e_cnt_filename) _e_cnt_filename.textContent=auditResults.filename.length||'—';
+  const cw=document.getElementById('cnt-worksets'); if(cw) cw.textContent='—';
+  const cp=document.getElementById('cnt-phases');   if(cp) cp.textContent='—';
+  renderLoadedModelsTable();
+  // Levels KPIs
+  const lv = data.levels;
+  const hasBase = baselineData !== null;
+  const _d_levelsKpiPlaceholder=document.getElementById('levelsKpiPlaceholder'); if(_d_levelsKpiPlaceholder) _d_levelsKpiPlaceholder.style.display=hasBase ? 'none' : 'block';
+  const _d_levelsKpiCards=document.getElementById('levelsKpiCards'); if(_d_levelsKpiCards) _d_levelsKpiCards.style.display=hasBase ? 'grid' : 'none';
+  if (hasBase) {
+    const _e_lkpi_total=document.getElementById('lkpi-total'); if(_e_lkpi_total) _e_lkpi_total.textContent=lv.length||'—';
+    const _e_lkpi_pass=document.getElementById('lkpi-pass'); if(_e_lkpi_pass) _e_lkpi_pass.textContent=lv.filter(r=>r._status==='PASS').length;
+    const _e_lkpi_review=document.getElementById('lkpi-review'); if(_e_lkpi_review) _e_lkpi_review.textContent=lv.filter(r=>r._status==='REVIEW').length;
+    const _e_lkpi_fail=document.getElementById('lkpi-fail'); if(_e_lkpi_fail) _e_lkpi_fail.textContent=lv.filter(r=>r._status==='FAIL').length;
+    const _e_lkpi_untick=document.getElementById('lkpi-untick'); if(_e_lkpi_untick) _e_lkpi_untick.textContent=lv.filter(r=>r._status==='UNTICK BUILDING STOREY').length;
+  }
+  // Coords KPIs
+  const cv = data.coords;
+  const _d_coordsKpiPlaceholder=document.getElementById('coordsKpiPlaceholder'); if(_d_coordsKpiPlaceholder) _d_coordsKpiPlaceholder.style.display=hasBase ? 'none' : 'block';
+  const _d_coordsKpiCards=document.getElementById('coordsKpiCards'); if(_d_coordsKpiCards) _d_coordsKpiCards.style.display=hasBase ? 'grid' : 'none';
+  if (hasBase) {
+    const _e_ckpi_total=document.getElementById('ckpi-total'); if(_e_ckpi_total) _e_ckpi_total.textContent=cv.length||'—';
+    const _e_ckpi_pass=document.getElementById('ckpi-pass'); if(_e_ckpi_pass) _e_ckpi_pass.textContent=cv.filter(r=>r._status==='PASS').length;
+    const _e_ckpi_fail=document.getElementById('ckpi-fail'); if(_e_ckpi_fail) _e_ckpi_fail.textContent=cv.filter(r=>r._status==='FAIL').length;
+    const _e_ckpi_na=document.getElementById('ckpi-na'); if(_e_ckpi_na) _e_ckpi_na.textContent=cv.filter(r=>r._status==='NA').length;
+  }
+  // File Name KPIs
+  const fn = data.filename;
+  const _d_fnKpiPlaceholder=document.getElementById('fnKpiPlaceholder'); if(_d_fnKpiPlaceholder) _d_fnKpiPlaceholder.style.display=hasBase ? 'none' : 'block';
+  const _d_fnKpiCards=document.getElementById('fnKpiCards'); if(_d_fnKpiCards) _d_fnKpiCards.style.display=hasBase ? 'grid' : 'none';
+  if (hasBase) {
+    const _e_fnkpi_total=document.getElementById('fnkpi-total'); if(_e_fnkpi_total) _e_fnkpi_total.textContent=fn.length||'—';
+    const _e_fnkpi_pass=document.getElementById('fnkpi-pass'); if(_e_fnkpi_pass) _e_fnkpi_pass.textContent=fn.filter(r=>r._status==='PASS').length;
+    const _e_fnkpi_review=document.getElementById('fnkpi-review'); if(_e_fnkpi_review) _e_fnkpi_review.textContent=fn.filter(r=>r._status==='REVIEW').length;
+    const _e_fnkpi_fail=document.getElementById('fnkpi-fail'); if(_e_fnkpi_fail) _e_fnkpi_fail.textContent=fn.filter(r=>r._status==='FAIL').length;
+    const _e_fnkpi_notfound=document.getElementById('fnkpi-notfound'); if(_e_fnkpi_notfound) _e_fnkpi_notfound.textContent=fn.filter(r=>r._status==='NOT FOUND').length;
+  }
+}
+
+// ── FILTERS ────────────────────────────────────────────────────────────────
+function applyFilters() {
+  const q = document.getElementById('filterSearch').value.toLowerCase();
+  filteredResults.grids = auditResults.grids.filter(r => {
+    if (selModels.size   && !selModels.has(r['SourceModel']))   return false;
+    if (selStatuses.size && !selStatuses.has(r._status))        return false;
+    if (q && ![r['SourceModel'],r['GridName']].map(v=>String(v||'')).join(' ').toLowerCase().includes(q)) return false;
+    return true;
+  });
+  filteredResults.levels = auditResults.levels.filter(r => {
+    if (selModels.size   && !selModels.has(r['SourceModel']))   return false;
+    if (selStatuses.size && !selStatuses.has(r._status))        return false;
+    if (q && !String(r['Level Name']||'').toLowerCase().includes(q)) return false;
+    return true;
+  });
+  filteredResults.coords = auditResults.coords.filter(r => {
+    if (selModels.size   && !selModels.has(r['ModelTitle']))    return false;
+    if (selStatuses.size && !selStatuses.has(r._status))        return false;
+    return true;
+  });
+  filteredResults.filename = auditResults.filename.filter(r => {
+    if (selBuildings.size && !selBuildings.has(r._precinct))    return false;
+    if (selStatuses.size  && !selStatuses.has(r._status))       return false;
+    if (q && ![r._precinct,r._expected,r._matched].join(' ').toLowerCase().includes(q)) return false;
+    return true;
+  });
+  renderGridsTable();
+  renderLevelsTable();
+  renderCoordsTable();
+  renderFilenameTable();
+  // KPIs and donut NEVER react to Status filter — not even when combined with other filters.
+  // Build a status-stripped dataset: apply model/precinct/search but ignore selStatuses.
+  const q2 = document.getElementById('filterSearch').value.toLowerCase();
+  const kpiData = {
+    grids: auditResults.grids.filter(r => {
+      if (selModels.size   && !selModels.has(r['SourceModel']))   return false;
+      if (q2 && ![r['SourceModel'],r['GridName']].map(v=>String(v||'')).join(' ').toLowerCase().includes(q2)) return false;
+      return true;
+    }),
+    levels: auditResults.levels.filter(r => {
+      if (selModels.size   && !selModels.has(r['SourceModel']))   return false;
+      if (q2 && !String(r['Level Name']||'').toLowerCase().includes(q2)) return false;
+      return true;
+    }),
+    coords: auditResults.coords.filter(r => {
+      if (selModels.size   && !selModels.has(r['ModelTitle']))    return false;
+      return true;
+    }),
+    filename: auditResults.filename.filter(r => {
+      if (selBuildings.size && !selBuildings.has(r._precinct))    return false;
+      if (q2 && ![r._precinct,r._expected,r._matched].join(' ').toLowerCase().includes(q2)) return false;
+      return true;
+    }),
+  };
+  updateKPIs(kpiData);
+  renderDonut(kpiData);
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────────────
+function pill(s) {
+  const m={PASS:'p-pass',FAIL:'p-fail',MISSING:'p-miss',ADDED:'p-warn',Host:'p-host',REVIEW:'p-review','UNTICK BUILDING STOREY':'p-untick',NA:'p-na','NOT FOUND':'p-miss'};
+  return `<span class="pill ${m[s]||''}">${s}</span>`;
+}
+function dcell(val, tol) {
+  if (val===''||val==null) return '<td>—</td>';
+  const n=parseFloat(val);
+  const c=isNaN(n)?'':n>tol?'d-fail':n>tol*0.5?'d-warn':'d-ok';
+  return `<td class="${c}">${isNaN(n)?val:n.toFixed(2)}</td>`;
+}
+
+function renderGridsTable() {
+  const tol=parseFloat(document.getElementById('tolerance').value)||1.0;
+  const tb=document.getElementById('gridsBody');
+  if (!filteredResults.grids.length) { tb.innerHTML='<tr><td colspan="7"><div class="empty"><div class="empty-icon">⊞</div><div class="empty-title">No results match current filters</div></div></td></tr>'; return; }
+  tb.innerHTML=filteredResults.grids.map(r=>`<tr>
+    <td>${pill(r._status)}</td>
+    <td class="str">${r['SourceModel']||'—'}</td>
+    <td>${r['GridName']||'—'}</td>
+    ${dcell(r['Delta_East_mm'],tol)}${dcell(r['Delta_North_mm'],tol)}${dcell(r['Delta_Pos_mm'],tol)}${dcell(r['Delta_Angle_deg'],0.01)}
+  </tr>`).join('');
+}
+
+function renderLevelsTable() {
+  const tb=document.getElementById('levelsBody');
+  if (!filteredResults.levels.length) { tb.innerHTML='<tr><td colspan="7"><div class="empty"><div class="empty-icon">≡</div><div class="empty-title">No results</div></div></td></tr>'; return; }
+  tb.innerHTML=filteredResults.levels.map(r=>{
+    const elev = parseElevMm(r['Param_Elevation']);
+    const elevDisp = isNaN(elev) ? (r['Param_Elevation']||'—') : elev.toFixed(2);
+    const elevCol = (r._status==='REVIEW'||r._status==='FAIL') ? '#ef4444' : '#e2e8f0';
+    const baseDispCell = r._baseElev!==undefined
+      ? `<td style="font-size:10px;color:#64748b">${parseElevMm(r._baseElev).toFixed(2)}</td>`
+      : '<td style="color:#374151">—</td>';
+    const elevBase = r['Param_ElevationBase']||'';
+    const elevBaseCol = elevBase.toLowerCase().includes('project base point') ? '#ef4444' : '#e2e8f0';
+    const storey = String(r['Param_BuildingStorey']||'').trim().toLowerCase();
+    const greyRow = (r._status==='NA' && storey==='no') ? 'opacity:0.38;' : '';
+    return `<tr style="${greyRow}">
+      <td>${pill(r._status)}</td>
+      <td class="str">${r['SourceModel']||'—'}</td>
+      <td class="str">${r['Level Name']||'—'}</td>
+      <td style="color:${elevCol}">${elevDisp}</td>
+      ${baseDispCell}
+      <td style="color:${elevBaseCol}">${elevBase||'—'}</td>
+      <td>${r['Param_BuildingStorey']||'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function coordCell(val, oor) {
+  if (val===''||val==null) return '<td>—</td>';
+  const n=parseFloat(val), disp=isNaN(n)?val:n.toFixed(2);
+  return `<td style="color:${oor?'#ef4444':'#e2e8f0'}">${disp}</td>`;
+}
+function renderCoordsTable() {
+  const tb=document.getElementById('coordsBody');
+  if (!filteredResults.coords.length) { tb.innerHTML='<tr><td colspan="7"><div class="empty"><div class="empty-icon">⊕</div><div class="empty-title">No results</div></div></td></tr>'; return; }
+  tb.innerHTML=filteredResults.coords.map(r=>{
+    const e=parseFloat(r['PL_East_mm']), n=parseFloat(r['PL_North_mm']);
+    const oorE=!isNaN(e)&&(e<260000000||e>300000000);
+    const oorN=!isNaN(n)&&(n<6000000000||n>6300000000);
+    return `<tr>
+      <td>${pill(r._status)}</td>
+      <td class="str">${r['ModelTitle']||'—'}</td>
+      <td class="str">${r['ProjectLocationName']||'—'}</td>
+      ${coordCell(r['PL_East_mm'],oorE)}
+      ${coordCell(r['PL_North_mm'],oorN)}
+      ${coordCell(r['PL_Elevation_mm'],false)}
+      ${coordCell(r['PL_TrueNorth_deg'],false)}
+    </tr>`;
+  }).join('');
+}
+
+function renderFilenameTable() {
+  const tb=document.getElementById('filenameBody');
+  if (!tb) return;
+  if (!filteredResults.filename.length) { tb.innerHTML='<tr><td colspan="4"><div class="empty"><div class="empty-icon">🏷</div><div class="empty-title">No results</div></div></td></tr>'; return; }
+  const sc={PASS:'#22c55e',REVIEW:'#f59e0b',FAIL:'#ef4444','NOT FOUND':'#a855f7'};
+  tb.innerHTML=filteredResults.filename.map(r=>`<tr>
+    <td>${pill(r._status)}</td>
+    <td class="str">${r._precinct||'—'}</td>
+    <td class="str">${r._expected||'—'}</td>
+    <td class="str" style="color:${sc[r._status]||'#e2e8f0'}">${r._matched||'—'}</td>
+  </tr>`).join('');
+}
+function renderLoadedModelsTable() {
+  const tb=document.getElementById('loadedModelsBody');
+  if (!tb||!exportData) return;
+  const models=[...new Set((exportData['Grids']||exportData['grids']||[]).map(r=>r['SourceModel']).filter(Boolean))];
+  if (!models.length) { tb.innerHTML='<tr><td colspan="2"><div class="empty"><div class="empty-icon">📋</div><div class="empty-title">No models found</div></div></td></tr>'; return; }
+  tb.innerHTML=models.map((m,i)=>`<tr><td style="color:#64748b;font-size:10px">${i+1}</td><td class="str">${m}</td></tr>`).join('');
+}
+
+// ── DONUT ──────────────────────────────────────────────────────────────────
+function renderDonut(data) {
+  const g=(data||auditResults).grids;
+  const pass=g.filter(r=>r._status==='PASS').length, fail=g.filter(r=>r._status==='FAIL').length;
+  const miss=g.filter(r=>r._status==='MISSING').length, added=g.filter(r=>r._status==='ADDED').length;
+  if (!pass&&!fail&&!miss&&!added) return;
+  if (typeof Plotly==='undefined') { setTimeout(renderDonut,200); return; }
+  Plotly.react('chartDonut',[{
+    values:[pass,fail,miss,added], labels:['Pass','Fail','Missing','Added'],
+    type:'pie', hole:0.58,
+    marker:{colors:['#22c55e','#ef4444','#a855f7','#f59e0b']},
+    textinfo:'label+percent', textfont:{size:10,color:'#fff',family:'Arial'},
+    hoverinfo:'label+value', direction:'clockwise'
+  }],{
+    paper_bgcolor:'transparent', plot_bgcolor:'transparent',
+    font:{family:'Arial',size:10,color:'#94a3b8'},
+    margin:{t:10,r:10,b:10,l:10}, showlegend:false
+  },{responsive:true,displayModeBar:false});
+  // Force Plotly to recalculate after container becomes visible
+  setTimeout(() => { try { Plotly.Plots.resize('chartDonut'); } catch(e){} }, 50);
+}
+
+// ── CSV ────────────────────────────────────────────────────────────────────
+function exportCSV(tableId, fname) {
+  const tbl=document.getElementById(tableId); if(!tbl) return;
+  const rows=[...tbl.rows].map(r=>[...r.cells].map(c=>'"'+c.innerText.replace(/\n/g,' ').replace(/"/g,'""')+'"').join(','));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'}));
+  a.download=fname+'_'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
+}
+
+// ── PDF ────────────────────────────────────────────────────────────────────
+
+
+
+function openBulkPdfModal()  { document.getElementById('bulkPdfModal').style.display='flex'; document.getElementById('bulkPdfProjectName').focus(); }
+function closeBulkPdfModal() { document.getElementById('bulkPdfModal').style.display='none'; }
+
+function generateBulkPDF() {
+  const proj = document.getElementById('bulkPdfProjectName').value.trim() || 'BEP Audit';
+  const sections = [...document.querySelectorAll('#bulkPdfModal input[type=checkbox]:checked')].map(c=>c.value);
+  if (!sections.length) { alert('Please select at least one section.'); return; }
+  closeBulkPdfModal();
+  const date=fmtDateLong(new Date()), tol=parseFloat(document.getElementById('tolerance').value)||1.0, angTol=parseFloat(document.getElementById('angleTolerance').value)||0.01;
+  const logoHtml=`<img src="sarah-white-logo.png" style="height:44px;max-width:160px;object-fit:contain" onerror="this.style.display='none'">`;
+  const hdr=`<div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:2px solid #1e3a6e;margin-bottom:12px"><div><div style="font-size:18px;font-weight:bold;color:#0a1f4e">${proj}</div><div style="font-size:9px;color:#64748b">BEP Audit Report · ${date}</div></div>${logoHtml}</div>`;
+  const TH='padding:4px 7px;font-size:7px;font-weight:bold;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;text-align:left;background:#0f1f3d;white-space:nowrap;';
+  const TD='padding:3px 7px;font-size:8px;border-bottom:1px solid #e2e8f0;white-space:nowrap;';
+  const bgMap={PASS:'background:#dcfce7;color:#166534',FAIL:'background:#fee2e2;color:#991b1b',MISSING:'background:#f3e8ff;color:#6b21a8',ADDED:'background:#fef3c7;color:#92400e',REVIEW:'background:#fef3c7;color:#92400e','UNTICK BUILDING STOREY':'background:#fee2e2;color:#991b1b',NA:'background:#f1f5f9;color:#94a3b8','NOT FOUND':'background:#f3e8ff;color:#6b21a8',Host:'background:#f1f5f9;color:#475569'};
+  function bdg(s){return `<span style="font-size:7px;font-weight:bold;padding:2px 7px;border-radius:10px;${bgMap[s]||''}">${s}</span>`;}
+  function dcP(val,t){if(val===''||val==null)return `<td style="${TD}color:#94a3b8">—</td>`;const n=parseFloat(val);const col=isNaN(n)?'#334155':n>t?'#991b1b':n>t*0.5?'#92400e':'#166534';return `<td style="${TD}color:${col}">${isNaN(n)?val:n.toFixed(2)}</td>`;}
+  let body=hdr;
+  if(sections.includes('grids')){
+    const all=auditResults.grids,rows=filteredResults.grids;
+    const pass=all.filter(r=>r._status==='PASS').length,fail=all.filter(r=>r._status==='FAIL').length,miss=all.filter(r=>r._status==='MISSING').length,added=all.filter(r=>r._status==='ADDED').length;
+    const kpis=[{l:'Total',v:all.length,c:'#3b82f6'},{l:'Pass',v:pass,c:'#22c55e'},{l:'Fail',v:fail,c:'#ef4444'},{l:'Missing',v:miss,c:'#a855f7'},{l:'Added',v:added,c:'#f59e0b'}];
+    const kpiH=kpis.map(k=>`<div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-top:3px solid ${k.c};border-radius:6px;padding:8px 10px;min-width:70px"><div style="font-size:7px;font-weight:bold;text-transform:uppercase;color:#64748b">${k.l}</div><div style="font-size:20px;font-weight:bold;color:${k.c};font-family:monospace">${k.v}</div></div>`).join('');
+    const tr=rows.map(r=>`<tr><td style="${TD}">${bdg(r._status)}</td><td style="${TD}color:#334155;max-width:160px;overflow:hidden;text-overflow:ellipsis">${r['SourceModel']||'—'}</td><td style="${TD}color:#334155">${r['GridName']||'—'}</td>${dcP(r['Delta_East_mm'],tol)}${dcP(r['Delta_North_mm'],tol)}${dcP(r['Delta_Pos_mm'],tol)}${dcP(r['Delta_Angle_deg'],angTol)}</tr>`).join('');
+    body+=`<div style="font-size:10px;font-weight:bold;color:#0a1f4e;margin-bottom:4px">Grid Audit</div><div style="display:flex;gap:6px;margin-bottom:8px">${kpiH}</div><table><thead><tr><th style="${TH}">Status</th><th style="${TH}">Source Model</th><th style="${TH}">Grid</th><th style="${TH}">ΔEast</th><th style="${TH}">ΔNorth</th><th style="${TH}">ΔPos</th><th style="${TH}">ΔAngle</th></tr></thead><tbody>${tr}</tbody></table>`;
+  }
+  if(sections.includes('levels')){
+    if(sections.includes('grids')) body+='<div style="page-break-before:always"></div>'+hdr;
+    const tr=filteredResults.levels.map(r=>{const elev=parseElevMm(r['Param_Elevation']);const ed=isNaN(elev)?(r['Param_Elevation']||'—'):elev.toFixed(2);const bd=r._baseElev!==undefined?parseElevMm(r._baseElev).toFixed(2):'—';return `<tr><td style="${TD}">${bdg(r._status)}</td><td style="${TD}color:#334155;max-width:140px;overflow:hidden;text-overflow:ellipsis">${r['SourceModel']||'—'}</td><td style="${TD}color:#334155">${r['Level Name']||'—'}</td><td style="${TD}color:${r._status==='REVIEW'||r._status==='FAIL'?'#991b1b':'#334155'}">${ed}</td><td style="${TD}color:#64748b">${bd}</td><td style="${TD}">${r['Param_ElevationBase']||'—'}</td><td style="${TD}">${r['Param_BuildingStorey']||'—'}</td></tr>`;}).join('');
+    body+=`<div style="font-size:10px;font-weight:bold;color:#0a1f4e;margin-bottom:4px">Level Audit</div><table><thead><tr><th style="${TH}">Status</th><th style="${TH}">Source Model</th><th style="${TH}">Level Name</th><th style="${TH}">Export Elev</th><th style="${TH}">Baseline Elev</th><th style="${TH}">Elev Base</th><th style="${TH}">Bldg Storey</th></tr></thead><tbody>${tr}</tbody></table>`;
+  }
+  if(sections.includes('coords')){
+    if(sections.some(s=>['grids','levels'].includes(s))) body+='<div style="page-break-before:always"></div>'+hdr;
+    const tr=filteredResults.coords.map(r=>`<tr><td style="${TD}">${bdg(r._status)}</td><td style="${TD}color:#334155;max-width:140px;overflow:hidden;text-overflow:ellipsis">${r['ModelTitle']||'—'}</td><td style="${TD}color:#334155">${r['ProjectLocationName']||'—'}</td><td style="${TD}">${r['PL_East_mm']!==''?parseFloat(r['PL_East_mm']).toFixed(2):'—'}</td><td style="${TD}">${r['PL_North_mm']!==''?parseFloat(r['PL_North_mm']).toFixed(2):'—'}</td><td style="${TD}">${r['PL_Elevation_mm']!==''?parseFloat(r['PL_Elevation_mm']).toFixed(2):'—'}</td><td style="${TD}">${r['PL_TrueNorth_deg']!==''?parseFloat(r['PL_TrueNorth_deg']).toFixed(4):'—'}</td></tr>`).join('');
+    body+=`<div style="font-size:10px;font-weight:bold;color:#0a1f4e;margin-bottom:4px">Coordinate Audit</div><table><thead><tr><th style="${TH}">Status</th><th style="${TH}">Model</th><th style="${TH}">Project Location</th><th style="${TH}">IO East</th><th style="${TH}">IO North</th><th style="${TH}">IO Elev</th><th style="${TH}">Angle TN</th></tr></thead><tbody>${tr}</tbody></table>`;
+  }
+  if(sections.includes('filename')&&filteredResults.filename.length){
+    if(sections.some(s=>['grids','levels','coords'].includes(s))) body+='<div style="page-break-before:always"></div>'+hdr;
+    const tr=filteredResults.filename.map(r=>`<tr><td style="${TD}">${bdg(r._status)}</td><td style="${TD}color:#334155">${r._precinct||'—'}</td><td style="${TD}color:#334155">${r._expected||'—'}</td><td style="${TD}color:${r._status==='PASS'?'#166534':r._status==='REVIEW'?'#92400e':'#991b1b'}">${r._matched||'—'}</td></tr>`).join('');
+    body+=`<div style="font-size:10px;font-weight:bold;color:#0a1f4e;margin-bottom:4px">File Name Check</div><table><thead><tr><th style="${TH}">Status</th><th style="${TH}">Precinct</th><th style="${TH}">Expected (BEP)</th><th style="${TH}">Matched Model</th></tr></thead><tbody>${tr}</tbody></table>`;
+  }
+  if(sections.includes('audit2d') && typeof audit2dAll !== 'undefined' && audit2dAll.length){
+    if(sections.some(s=>['grids','levels','coords','filename'].includes(s))) body+='<div style="page-break-before:always"></div>'+hdr;
+    const g2d=audit2dAll;
+    const pass2d=g2d.filter(r=>r._status==='PASS').length, fail2d=g2d.filter(r=>r._status==='FAIL').length;
+    const missR2d=g2d.filter(r=>r._status==='MISSING IN REVIZTO').length, missA2d=g2d.filter(r=>r._status==='MISSING IN ACONEX').length;
+    const bgMap2d={'PASS':'background:#dcfce7;color:#166534','FAIL':'background:#fee2e2;color:#991b1b','MISSING IN REVIZTO':'background:#f3e8ff;color:#6b21a8','MISSING IN ACONEX':'background:#fef3c7;color:#92400e'};
+    const kpis2d=[{l:'Total',v:g2d.length,c:'#3b82f6'},{l:'Pass',v:pass2d,c:'#22c55e'},{l:'Fail',v:fail2d,c:'#ef4444'},{l:'Miss. Revizto',v:missR2d,c:'#a855f7'},{l:'Miss. Aconex',v:missA2d,c:'#f59e0b'}];
+    const kpiH2d=kpis2d.map(k=>`<div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-top:3px solid ${k.c};border-radius:6px;padding:8px 10px;min-width:70px"><div style="font-size:7px;font-weight:bold;text-transform:uppercase;color:#64748b">${k.l}</div><div style="font-size:20px;font-weight:bold;color:${k.c};font-family:monospace">${k.v}</div></div>`).join('');
+    const rows2d = (typeof audit2dFiltered!=='undefined' && audit2dFiltered.length) ? audit2dFiltered : g2d;
+    const tr2d=rows2d.map(r=>{const ac=r._status==='FAIL'?'#991b1b':r._status==='PASS'?'#166534':'#334155';return `<tr><td style="${TD}"><span style="font-size:7px;font-weight:bold;padding:2px 7px;border-radius:10px;${bgMap2d[r._status]||''}">${r._status}</span></td><td style="${TD}color:#334155">${r.docNo||'—'}</td><td style="${TD}color:#334155;max-width:160px;overflow:hidden;text-overflow:ellipsis">${r.title||'—'}</td><td style="${TD}">${r.revDate||'—'}</td><td style="${TD}">${r.status||'—'}</td><td style="${TD}">${r.disc||'—'}</td><td style="${TD}color:${ac}">${r.rev||'—'}</td><td style="${TD}color:${ac}">${r.rvRev||'—'}</td></tr>`;}).join('');
+    body+=`<div style="font-size:10px;font-weight:bold;color:#0a1f4e;margin-bottom:4px">2D Audit | Aconex vs Revizto</div><div style="display:flex;gap:6px;margin-bottom:8px">${kpiH2d}</div><table><thead><tr><th style="${TH}">Status</th><th style="${TH}">Doc No</th><th style="${TH}">Title</th><th style="${TH}">Rev Date</th><th style="${TH}">Aconex Status</th><th style="${TH}">Discipline</th><th style="${TH}">Aconex Rev</th><th style="${TH}">Revizto Rev</th></tr></thead><tbody>${tr2d}</tbody></table>`;
+  }
+  body+=`<div style="margin-top:10px;font-size:8px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:5px">Generated by BEP Audit Dashboard · ${date}</div>`;
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>BEP Audit Bulk — ${proj}</title><style>@page{size:A3 landscape;margin:12mm}body{font-family:Arial,sans-serif;color:#1e293b;background:white;margin:0;font-size:10px}table{border-collapse:collapse;width:100%}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>${body}
+<!-- 2D AUDIT PDF MODAL -->
+<div id="pdfModal2d" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:#0a1f4e;border:1px solid #1e3a6e;border-radius:12px;padding:28px 32px;width:380px;">
+    <div style="font-size:15px;font-weight:bold;color:#f9fafb;margin-bottom:6px;">Generate 2D Audit PDF</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:20px;">Report will include filtered rows only.</div>
+    <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:6px;">Project Name</label>
+    <input id="pdfProjectName2d" type="text" placeholder="e.g. NNSHS Stage 2"
+      style="width:100%;background:#111827;border:1px solid #1e3a6e;border-radius:7px;color:#f9fafb;padding:8px 12px;font-size:13px;font-family:Arial,sans-serif;outline:none;box-sizing:border-box;"
+      onkeydown="if(event.key==='Enter')generate2dPDF()"
+      onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#1e3a6e'">
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+      <button onclick="close2dPdfModal()" style="background:transparent;border:1px solid #1e3a6e;color:#94a3b8;padding:7px 18px;border-radius:7px;font-size:12px;cursor:pointer;font-family:Arial,sans-serif;">Cancel</button>
+      <button onclick="generate2dPDF()" style="background:#3b82f6;border:none;color:#fff;padding:7px 20px;border-radius:7px;font-size:12px;font-weight:bold;cursor:pointer;font-family:Arial,sans-serif;">Generate PDF</button>
+    </div>
+  </div>
+</div>
+</body></html>`;
+  const win=window.open('','_blank'); win.document.write(html); win.document.close();
+  win.onload=()=>{ win.focus(); win.print(); };
+}
+
+function openPdfModal()  { document.getElementById('pdfModal').style.display='flex'; document.getElementById('pdfProjectName').focus(); }
+function closePdfModal() { document.getElementById('pdfModal').style.display='none'; }
+function fmtDateLong(d) {
+  const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return String(d.getDate()).padStart(2,'0')+' '+M[d.getMonth()]+' '+d.getFullYear();
+}
+function generatePDF() {
+  const proj=document.getElementById('pdfProjectName').value.trim()||'BEP Audit';
+  closePdfModal();
+  const date=fmtDateLong(new Date()), tol=parseFloat(document.getElementById('tolerance').value)||1.0, angTol=parseFloat(document.getElementById('angleTolerance').value)||0.01;
+  const rows=filteredResults.grids, all=auditResults.grids;
+  const pass=all.filter(r=>r._status==='PASS').length, fail=all.filter(r=>r._status==='FAIL').length;
+  const miss=all.filter(r=>r._status==='MISSING').length, added=all.filter(r=>r._status==='ADDED').length;
+  const total=all.length;
+  function donutSVG(){
+    const data=[{val:pass,col:'#22c55e',lbl:'Pass'},{val:fail,col:'#ef4444',lbl:'Fail'},{val:miss,col:'#a855f7',lbl:'Missing'},{val:added,col:'#f59e0b',lbl:'Added'}].filter(d=>d.val>0);
+    const tot=data.reduce((s,d)=>s+d.val,0); if(!tot) return '';
+    const cx=80,cy=80,r=62,ri=38; let angle=-Math.PI/2,arcs='',leg='';
+    data.forEach(d=>{const sw=(d.val/tot)*Math.PI*2;const x1=cx+r*Math.cos(angle),y1=cy+r*Math.sin(angle),x2=cx+r*Math.cos(angle+sw),y2=cy+r*Math.sin(angle+sw);const xi1=cx+ri*Math.cos(angle),yi1=cy+ri*Math.sin(angle),xi2=cx+ri*Math.cos(angle+sw),yi2=cy+ri*Math.sin(angle+sw);arcs+=`<path d="M${x1},${y1} A${r},${r} 0 ${sw>Math.PI?1:0},1 ${x2},${y2} L${xi2},${yi2} A${ri},${ri} 0 ${sw>Math.PI?1:0},0 ${xi1},${yi1}Z" fill="${d.col}"/>`;if(sw>0.2){const mx=cx+(r+10)*Math.cos(angle+sw/2),my=cy+(r+10)*Math.sin(angle+sw/2);arcs+=`<text x="${mx}" y="${my}" text-anchor="middle" dominant-baseline="central" font-size="8" fill="#fff" font-family="Arial">${((d.val/tot)*100).toFixed(0)}%</text>`;}leg+=`<div style="display:flex;align-items:center;gap:5px;font-size:10px;color:#334155;margin-bottom:4px"><span style="width:9px;height:9px;border-radius:2px;background:${d.col};flex-shrink:0;display:inline-block"></span>${d.lbl}: <strong>${d.val}</strong></div>`;angle+=sw;});
+    return `<div style="display:flex;align-items:center;gap:14px"><svg width="160" height="160" viewBox="0 0 160 160">${arcs}<circle cx="${cx}" cy="${cy}" r="${ri-2}" fill="white"/><text x="${cx}" y="${cy-5}" text-anchor="middle" font-size="16" font-weight="bold" fill="#1e293b" font-family="Arial">${total}</text><text x="${cx}" y="${cy+10}" text-anchor="middle" font-size="8" fill="#64748b" font-family="Arial">total</text></svg><div>${leg}</div></div>`;
+  }
+  const kpis=[{l:'Total',v:total,c:'#3b82f6'},{l:'Pass',v:pass,c:'#22c55e'},{l:'Fail',v:fail,c:'#ef4444'},{l:'Missing',v:miss,c:'#a855f7'},{l:'Added',v:added,c:'#f59e0b'}];
+  const kpiHtml=kpis.map(k=>`<div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-top:3px solid ${k.c};border-radius:8px;padding:10px 12px;min-width:80px"><div style="font-size:8px;font-weight:bold;text-transform:uppercase;letter-spacing:.07em;color:#64748b">${k.l}</div><div style="font-size:24px;font-weight:bold;color:${k.c};font-family:monospace;margin:3px 0">${k.v}</div></div>`).join('');
+  const bgMap={PASS:'background:#dcfce7;color:#166534',FAIL:'background:#fee2e2;color:#991b1b',MISSING:'background:#f3e8ff;color:#6b21a8',ADDED:'background:#fef3c7;color:#92400e'};
+  const TD='padding:3px 7px;font-size:8px;border-bottom:1px solid #e2e8f0;white-space:nowrap;';
+  const TH='padding:4px 7px;font-size:7px;font-weight:bold;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;text-align:left;background:#0f1f3d;white-space:nowrap;';
+  function dcP(val,t){if(val===''||val==null)return `<td style="${TD}color:#94a3b8">—</td>`;const n=parseFloat(val);const col=isNaN(n)?'#334155':n>t?'#991b1b':n>t*0.5?'#92400e':'#166534';return `<td style="${TD}color:${col}">${isNaN(n)?val:n.toFixed(2)}</td>`;}
+  const tblRows=rows.map(r=>`<tr><td style="${TD}"><span style="font-size:7px;font-weight:bold;padding:2px 7px;border-radius:10px;${bgMap[r._status]||''}">${r._status}</span></td><td style="${TD}color:#334155;max-width:180px;overflow:hidden;text-overflow:ellipsis">${r['SourceModel']||'—'}</td><td style="${TD}color:#334155">${r['GridName']||'—'}</td>${dcP(r['Delta_East_mm'],tol)}${dcP(r['Delta_North_mm'],tol)}${dcP(r['Delta_Pos_mm'],tol)}${dcP(r['Delta_Angle_deg'],angTol)}</tr>`).join('');
+  const logoHtml=`<img src="sarah-white-logo.png" style="height:44px;max-width:180px;object-fit:contain" onerror="this.style.display='none'">`;
+  const filterNote=(selModels.size||selStatuses.size||document.getElementById('filterSearch').value)?` · Filtered (${rows.length} of ${total} rows)`:'';
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>BEP Audit — ${proj}</title><style>@page{size:A3 landscape;margin:14mm}body{font-family:Arial,sans-serif;color:#1e293b;background:white;margin:0;font-size:10px}table{border-collapse:collapse;width:100%}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
+<div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:2px solid #1e3a6e;margin-bottom:14px"><div><div style="font-size:20px;font-weight:bold;color:#0a1f4e">${proj}</div><div style="font-size:10px;color:#64748b;margin-top:2px">BEP Audit Report · ${date}${filterNote}</div><div style="font-size:9px;color:#94a3b8;margin-top:1px">Position tolerance: ${tol} mm · Angle tolerance: ${angTol}°</div></div>${logoHtml}</div>
+<div style="display:flex;gap:12px;margin-bottom:14px;align-items:flex-start"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;flex-shrink:0"><div style="font-size:8px;font-weight:bold;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px">Pass / Fail Split</div>${donutSVG()}</div><div style="display:flex;gap:8px;flex:1;flex-wrap:wrap;align-content:flex-start">${kpiHtml}</div></div>
+<div style="font-size:8px;font-weight:bold;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:5px">Grid Audit Results</div>
+<table><thead><tr><th style="${TH}">Status</th><th style="${TH}">Source Model</th><th style="${TH}">Grid</th><th style="${TH}">ΔEast (mm)</th><th style="${TH}">ΔNorth (mm)</th><th style="${TH}">ΔPos (mm)</th><th style="${TH}">ΔAngle (°)</th></tr></thead><tbody>${tblRows}</tbody></table>
+<div style="margin-top:10px;font-size:8px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:5px">Generated by BEP Audit Dashboard · ${date}</div>
+</body></html>`;
+  const win=window.open('','_blank'); win.document.write(html); win.document.close();
+  win.onload=()=>{ win.focus(); win.print(); };
+}
+
+// ══ 2D AUDIT ══════════════════════════════════════════════════════════════
+let aconexData=null, reviztoData=null, audit2dAll=[], audit2dFiltered=[];
+let sel2dDisciplines=new Set(), sel2dStatuses=new Set();
+
+</script>
+</body>
+</html>

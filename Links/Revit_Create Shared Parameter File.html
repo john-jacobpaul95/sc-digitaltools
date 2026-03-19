@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Revit Shared Parameter Creator</title>
+<style>
+body { font-family: Arial, sans-serif; margin:0; background:#001B49; color:#f9fafb; }
+h2 { text-align:center; margin-bottom:20px; color:#e5e7eb; }
+.container { background:#1e293b; padding:30px; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.5); max-width:1000px; margin:100px auto 40px auto; }
+label { display:block; margin-top:16px; font-weight:bold; color:#cbd5e1; }
+input, select, textarea { width:100%; padding:10px; margin-top:6px; border-radius:8px; border:1px solid #374151; background:#111827; color:#f9fafb; font-size:14px; }
+input::placeholder, textarea::placeholder { color:#9ca3af; }
+input:focus, select:focus, textarea:focus { outline:none; border-color:#3b82f6; box-shadow:0 0 6px #3b82f6; }
+textarea { min-height:140px; resize:vertical; }
+.btn { margin-top:20px; display:inline-block; padding:12px 20px; border:none; border-radius:8px; cursor:pointer; font-size:15px; font-weight:bold; transition: all 0.2s ease; }
+.btn-primary { background:#3b82f6; color:white; }
+.btn-primary:hover { background:#2563eb; }
+.btn-secondary { background:#374151; color:#f9fafb; }
+.btn-secondary:hover { background:#4b5563; }
+.flex { display:flex; gap:30px; margin-top:20px; }
+.left, .right { flex:1; }
+.right { background:#111827; border:1px solid #374151; border-radius:8px; padding:20px; max-height:600px; overflow-y:auto; }
+.param-list-title { font-weight:bold; margin-bottom:10px; color:#e5e7eb; font-size:13px; }
+.group-title { margin-top:12px; font-weight:bold; color:#93c5fd; font-size:14px; }
+ul { list-style-type:disc; margin:0; padding-left:20px; font-size:13px; }
+ul li { margin-bottom:6px; color:#f9fafb; }
+.btn-row { display:flex; gap:12px; margin-top:20px; flex-wrap:wrap; }
+.count { margin-top:6px; color:#9ca3af; font-size:13px; }
+.inline { display:flex; gap:12px; align-items:center; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Revit Shared Parameter Creator</h2>
+  <div class="flex">
+
+    <!-- Left form -->
+    <div class="left">
+      <label>Discipline</label>
+      <input type="text" value="Common" disabled>
+
+      <label>Type of Parameter</label>
+      <select id="paramType">
+        <option>Text</option>
+        <option>Integer</option>
+        <option>Number</option>
+        <option>Length</option>
+        <option>Area</option>
+        <option>Volume</option>
+        <option>Yes/No</option>
+        <option>Material</option>
+        <option>URL</option>
+        <option>Currency</option>
+        <option>Multiline Text</option>
+      </select>
+
+      <label>Group</label>
+      <input id="paramGroup" type="text" placeholder="e.g. Custom_Type_Params">
+
+      <label>Parameter (one per line)</label>
+      <textarea id="values" placeholder="SC_Parameter 1&#10;SC_Parameter 2" oninput="updateValueCount()"></textarea>
+      <div class="count">Parameters count: <span id="valueCount">0</span></div>
+
+      <!-- GUIDs input -->
+      <label>GUIDs (optional, one per line; align with the parameters above)</label>
+      <textarea id="guids" placeholder="12345678-1234-1234-1234-1234567890ab&#10;6b29fc40-ca47-1067-b31d-00dd010662da"></textarea>
+
+      <button class="btn btn-secondary" onclick="addParameters()">Add New Parameter(s)</button>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="generateFile()">Generate Shared Parameter File</button>
+        <button class="btn btn-primary" onclick="downloadFile()">Download Shared Parameter File</button>
+      </div>
+
+      <label>Generated File Content</label>
+      <textarea id="fileContent" readonly placeholder="Generated file content will appear here..." style="min-height:200px;"></textarea>
+    </div>
+
+    <!-- Right parameter list -->
+    <div class="right">
+      <div class="param-list-title">Groups & Parameters Added</div>
+      <div id="groupedList"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let parameters = [];
+let groups = {};
+let groupCounter = 1;
+
+const datatypeMap = {
+  'Text': 'TEXT',
+  'Integer': 'INTEGER',
+  'Number': 'NUMBER',
+  'Length': 'LENGTH',
+  'Area': 'AREA',
+  'Volume': 'VOLUME',
+  'Yes/No': 'YESNO',
+  'Material': 'MATERIAL',
+  'URL': 'URL',
+  'Currency': 'CURRENCY',
+  'Multiline Text': 'MULTILINETEXT'
+};
+
+function updateValueCount() {
+  const values = getValuesArray();
+  document.getElementById('valueCount').textContent = values.length;
+}
+
+function getValuesArray() {
+  return document.getElementById('values').value
+    .split('\n')
+    .map(v => v.replace(/\t/g, ' ').trim())
+    .filter(v => v.length > 0);
+}
+
+function getGuidsArrayAligned() {
+  // Do NOT filter empties to preserve alignment with parameter names
+  return document.getElementById('guids').value
+    .split('\n')
+    .map(v => v.trim());
+}
+
+/* SMART PASTE:
+   - If you paste two columns (tab- or comma-separated) into the "Parameter" box,
+     we'll split them and auto-fill both Parameters and GUIDs fields. */
+document.getElementById('values').addEventListener('paste', function(e) {
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  if (!text) return;
+
+  const looksTabular = text.includes('\t') || (/^.*?,.*$/m).test(text);
+  if (!looksTabular) return; // let normal paste happen for single-column
+
+  const useTab = text.includes('\t');
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+
+  const names = [];
+  const guids = [];
+
+  lines.forEach(line => {
+    const parts = (useTab ? line.split('\t') : line.split(',')).map(s => s.trim());
+    if (parts.length >= 2) {
+      names.push(parts[0]);
+      guids.push(normalizeGuid(parts[1]));
+    } else if (parts.length === 1) {
+      names.push(parts[0]);
+      guids.push('');
+    }
+  });
+
+  if (names.length) {
+    e.preventDefault(); // replace default paste
+    document.getElementById('values').value = names.join('\n');
+    document.getElementById('guids').value  = guids.join('\n');
+    updateValueCount();
+  }
+});
+
+function addParameters() {
+  const typeLabel = document.getElementById('paramType').value;
+  const datatype = datatypeMap[typeLabel] || 'TEXT';
+  const groupName = document.getElementById('paramGroup').value.trim();
+  const names = getValuesArray();
+  const inputGuids = getGuidsArrayAligned();
+
+  if (!groupName) {
+    alert("Please enter a group name.");
+    return;
+  }
+
+  if (names.length === 0) {
+    alert('Please enter at least one parameter.');
+    return;
+  }
+
+  // Assign group ID if new
+  if (!(groupName in groups)) {
+    groups[groupName] = groupCounter++;
+  }
+
+  names.forEach((name, i) => {
+    let g = (inputGuids[i] || '').trim();
+    let normalized = normalizeGuid(g);
+    const guid = isValidGuid(normalized) ? normalized : null; // auto-generate later if null
+    parameters.push({ name, datatype, groupName, guid });
+  });
+
+  // Clear input fields for next batch
+  document.getElementById('values').value = '';
+  document.getElementById('guids').value = '';
+  updateValueCount();
+  renderGroupedList();
+}
+
+function renderGroupedList() {
+  const container = document.getElementById('groupedList');
+  container.innerHTML = '';
+
+  // Group parameters
+  const grouped = {};
+  parameters.forEach(p => {
+    if (!(p.groupName in grouped)) grouped[p.groupName] = [];
+    grouped[p.groupName].push(p);
+  });
+
+  for (let g in grouped) {
+    const groupDiv = document.createElement('div');
+    const title = document.createElement('div');
+    title.className = 'group-title';
+    title.textContent = g;
+    groupDiv.appendChild(title);
+
+    const ul = document.createElement('ul');
+    grouped[g].forEach(p => {
+      const li = document.createElement('li');
+      li.textContent = `${p.name} (${p.datatype})`;
+      ul.appendChild(li);
+    });
+    groupDiv.appendChild(ul);
+
+    container.appendChild(groupDiv);
+  }
+}
+
+function generateFile() {
+  if (parameters.length === 0) {
+    alert('No parameters to generate. Add some first.');
+    return;
+  }
+
+  let content = '';
+  content += '# This is a Revit Shared Parameter File.\n';
+  content += '# Do not edit manually unless you know what you are doing.\n';
+  content += '*META\tVERSION\tMINVERSION\n';
+  content += 'META\t2\t1\n';
+  content += '*GROUP\tID\tNAME\n';
+
+  // Write groups
+  for (let g in groups) {
+    content += `GROUP\t${groups[g]}\t${g}\n`;
+  }
+
+  content += '*PARAM\tGUID\tNAME\tDATATYPE\tDATACATEGORY\tGROUP\tVISIBLE\n';
+
+  parameters.forEach(p => {
+    const groupId = groups[p.groupName];
+    const g = isValidGuid(p.guid) ? p.guid
+            : (crypto && crypto.randomUUID) ? crypto.randomUUID()
+            : fallbackGuid();
+    content += `PARAM\t${g}\t${p.name}\t${p.datatype}\t\t${groupId}\t1\n`;
+  });
+
+  window.generatedFile = content;
+  document.getElementById('fileContent').value = content;
+  alert('Shared Parameter file generated! You can see it below.');
+}
+
+function downloadFile() {
+  if (!window.generatedFile) {
+    alert('Please generate the file first.');
+    return;
+  }
+
+  let fileName = prompt('Enter shared parameter file name:', 'SharedParameters.txt');
+  if (!fileName) fileName = 'SharedParameters.txt';
+  if (!fileName.endsWith('.txt')) fileName += '.txt';
+
+  const blob = new Blob([window.generatedFile], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = fileName;
+  a.click();
+}
+
+/* ---------- GUID Helpers ---------- */
+function isValidGuid(g) {
+  if (!g || typeof g !== 'string') return false;
+  const re = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return re.test(g);
+}
+
+function normalizeGuid(g) {
+  if (!g) return '';
+  let s = g.trim().replace(/^{|}$/g, '').toLowerCase(); // drop braces, lowercase
+  if (/^[0-9a-f]{32}$/.test(s)) {
+    s = s.slice(0,8) + '-' + s.slice(8,12) + '-' + s.slice(12,16) + '-' + s.slice(16,20) + '-' + s.slice(20);
+  }
+  return s;
+}
+
+function fallbackGuid() {
+  function s4(){return Math.floor((1+Math.random())*0x10000).toString(16).substring(1)}
+  return `${s4()}${s4()}-${s4()}-4${s4().substr(0,3)}-${(8+Math.random()*4|0).toString(16)}${s4().substr(0,3)}-${s4()}${s4()}${s4()}`;
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Shared Parameter File Viewer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #1e1e2f;
+      color: #f0f0f0;
+      padding: 20px;
+    }
+    h1, h3 {
+      text-align: center;
+      color: #61dafb;
+    }
+    input[type="file"] {
+      display: block;
+      margin: 20px auto;
+      padding: 10px;
+      background: #282c34;
+      border: 1px solid #61dafb;
+      border-radius: 8px;
+      color: #f0f0f0;
+    }
+    .group-container {
+      margin-top: 30px;
+    }
+    h2 {
+      color: #61dafb;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 30px;
+      background: #2c2c3c;
+      border-radius: 8px;
+      overflow: hidden;
+      table-layout: fixed;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #444;
+      text-align: left;
+      width: 25%; /* 4 equal columns */
+      word-wrap: break-word;
+    }
+    th {
+      background: #3a3f58;
+    }
+    tr:hover {
+      background: #3d3d5c;
+    }
+    .guid-col {
+      display: none; /* hidden by default */
+    }
+    .toggle-btn {
+      background: #61dafb;
+      border: none;
+      border-radius: 6px;
+      padding: 5px 10px;
+      color: #1e1e2f;
+      cursor: pointer;
+      font-size: 0.9em;
+      transition: 0.2s;
+    }
+    .toggle-btn:hover {
+      background: #52c0e8;
+    }
+    .param-count {
+      color: #9ca3af;
+      font-size: 0.9em;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Shared Parameter File Viewer</h1>
+  <input type="file" id="fileInput" />
+  <h3 id="summary"></h3>
+  <button id="exportBtn" class="toggle-btn" style="display:none;" onclick="exportCSV()">Export CSV</button>
+  <div id="output"></div>
+
+  <script>
+    let lastFileName = '';
+
+    document.getElementById('fileInput').addEventListener('change', function(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      lastFileName = file.name.replace(/\.[^/.]+$/, '');
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const content = e.target.result;
+        parseSharedParameter(content);
+      };
+      reader.readAsText(file);
+    });
+
+    function parseSharedParameter(text) {
+      const lines = text.split(/\r?\n/);
+      const groups = {};
+      const groupNames = {};
+      const groupOrder = [];
+      let totalParams = 0;
+
+      // Collect group IDs and names
+      for (let line of lines) {
+        if (line.startsWith("GROUP")) {
+          const parts = line.split('\t');
+          const id = parts[1];
+          const name = parts[2];
+          groupNames[id] = name;
+          groups[id] = [];
+          groupOrder.push(id);
+        }
+      }
+
+      // Collect parameters
+      for (let line of lines) {
+        if (line.startsWith("PARAM")) {
+          const parts = line.split('\t');
+          const groupId = parts[5]; // Group column index
+          const param = {
+            guid: parts[1],
+            name: parts[2],
+            type: parts[3],
+            description: parts[7]
+          };
+          groups[groupId].push(param);
+          totalParams++;
+        }
+      }
+
+      // Update summary at the top
+      const totalGroups = groupOrder.length;
+      document.getElementById('summary').textContent = `Total Groups: ${totalGroups} | Total Parameters: ${totalParams}`;
+
+      // Build HTML tables
+      let html = "";
+      for (let groupId of groupOrder) {
+        const params = groups[groupId];
+        if (!params || params.length === 0) continue;
+
+        const tableId = `table-${groupId}`;
+
+        html += `<div class="group-container">`;
+        html += `<h2>
+          Group ID: ${groupId} (${groupNames[groupId]})
+          <span class="param-count">(${params.length} parameters)</span>
+          <button class="toggle-btn" onclick="toggleGUID('${tableId}', this)">Show GUIDs</button>
+        </h2>`;
+        html += `<table id="${tableId}">
+          <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th class="guid-col">GUID</th>
+          </tr>`;
+
+        for (let p of params) {
+          html += `<tr>
+            <td>${p.name}</td>
+            <td>${p.type}</td>
+            <td>${p.description || ""}</td>
+            <td class="guid-col">${p.guid}</td>
+          </tr>`;
+        }
+        html += `</table></div>`;
+      }
+
+      document.getElementById('output').innerHTML = html;
+
+      // Show export button when content is available
+      const hasTables = document.querySelectorAll('#output table').length > 0;
+      document.getElementById('exportBtn').style.display = hasTables ? 'inline-block' : 'none';
+    }
+
+    function toggleGUID(tableId, btn) {
+      const table = document.getElementById(tableId);
+      const guidCols = table.querySelectorAll('.guid-col');
+      const sample = guidCols[0];
+      const isHidden = !sample || window.getComputedStyle(sample).display === "none";
+
+      guidCols.forEach(col => {
+        col.style.display = isHidden ? "table-cell" : "none";
+      });
+
+      btn.textContent = isHidden ? "Hide GUIDs" : "Show GUIDs";
+    }
+
+    // Updated to ALWAYS include GUID in the CSV
+    function exportCSV() {
+      const tables = document.querySelectorAll('#output table');
+      if (!tables.length) { alert('No data to export.'); return; }
+
+      const headers = ['Name','Type','Description','GUID'];
+      const rows = [headers];
+
+      tables.forEach(t => {
+        const trs = t.querySelectorAll('tr');
+        for (let i = 1; i < trs.length; i++) { // skip header row
+          const tds = trs[i].querySelectorAll('td');
+          const name = (tds[0]?.textContent || '').trim();
+          const type = (tds[1]?.textContent || '').trim();
+          const desc = (tds[2]?.textContent || '').trim();
+          const guid = (tds[3]?.textContent || '').trim(); // read even if hidden
+          rows.push([name, type, desc, guid]);
+        }
+      });
+
+      function esc(v) {
+        v = v == null ? '' : String(v);
+        return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+      }
+
+      const csv = rows.map(r => r.map(esc).join(',')).join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const base = lastFileName || 'export';
+      a.download = `${base}_view.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+  </script>
+</body>
+</html>
