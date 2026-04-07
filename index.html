@@ -6,53 +6,86 @@
 <style>
 body { font-family: Arial, sans-serif; margin:0; background:#001B49; color:#f9fafb; }
 h1 { text-align:center; margin-top:60px; font-size:32px; color:#e5e7eb; }
-.container { display:flex; justify-content:center; align-items:stretch; gap:40px; margin-top:80px; flex-wrap:wrap; max-width:960px; margin-left:auto; margin-right:auto; }
-.card { flex: 0 0 280px; }
-.card { background:#1e293b; padding:40px; border-radius:16px; box-shadow:0 4px 20px rgba(0,0,0,0.5); width:280px; text-align:center; transition: transform 0.2s ease, background 0.2s ease; cursor:pointer; }
+
+.wrapper { max-width:1300px; margin:0 auto; padding:0 32px; }
+
+.row1 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px;
+  margin-top: 60px;
+}
+
+.row2 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px;
+  margin-top: 28px;
+}
+
+.card { background:#1e293b; padding:32px 24px; border-radius:16px; box-shadow:0 4px 20px rgba(0,0,0,0.5); text-align:center; transition: transform 0.2s ease, background 0.2s ease; cursor:pointer; }
 .card:hover { transform:translateY(-8px); background:#2d3748; }
-.card h2 { font-size:20px; margin-bottom:20px; color:#93c5fd; }
-.card p { font-size:14px; color:#cbd5e1; }
-.card a { display:inline-block; margin-top:20px; padding:10px 16px; background:#3b82f6; color:white; text-decoration:none; border-radius:8px; font-weight:bold; }
+.card h2 { font-size:17px; margin-bottom:16px; color:#93c5fd; }
+.card p { font-size:13px; color:#cbd5e1; line-height:1.5; }
+.card a { display:inline-block; margin-top:20px; padding:9px 16px; background:#3b82f6; color:white; text-decoration:none; border-radius:8px; font-weight:bold; font-size:13px; }
 .card a:hover { background:#2563eb; }
 .logo { position:absolute; top:15px; right:20px; height:100px; }
 </style>
 </head>
 <body>
-  <!-- Logo -->
   <img src="Links/sarah-logo.png" alt="SARAH Logo" class="logo">
+  <h1>Welcome to Sarah Digital Tools | v1.0 - 05.04.2026</h1>
 
-  <h1>Welcome to Sarah Digital Tools</h1>
+  <div class="wrapper">
 
-  <div class="container">
-    <div class="card">
-      <h2>PyRevit Audit Dashboard</h2>
-      <p>Audit and review PyRevit usage and activity across your project.</p>
-      <a id="link-pyrevit" href="#">Open Tool</a>
+    <!-- Row 1: 4 cards -->
+    <div class="row1">
+      <div class="card">
+        <h2>PyRevit Audit Dashboard</h2>
+        <p>Audit and review PyRevit usage and activity across your project.</p>
+        <a id="link-pyrevit" href="#">Open Tool</a>
+      </div>
+      <div class="card">
+        <h2>2D Audit: Aconex vs Revizto</h2>
+        <p>Compare and audit 2D drawing sets between Aconex and Revizto.</p>
+        <a id="link-2daudit" href="#">Open Tool</a>
+      </div>
+      <div class="card">
+        <h2>Aconex Document Transmittal Tracker</h2>
+        <p>Track and manage Aconex document transmittals across your project.</p>
+        <a id="link-transmittal" href="#">Open Tool</a>
+      </div>
+      <div class="card">
+        <h2>Revit Shared Parameter Creator</h2>
+        <p>Create and manage Revit shared parameter files easily.</p>
+        <a id="link-spf" href="#">Open Tool</a>
+      </div>
     </div>
 
-    <div class="card">
-      <h2>Revizto Search Set Generator</h2>
-      <p>Generate batch XML search sets for Revizto/Navisworks.</p>
-      <a id="link-revizto" href="#">Open Tool</a>
+    <!-- Row 2: 4 cards -->
+    <div class="row2">
+      <div class="card">
+        <h2>Bulk Rename File</h2>
+        <p>Batch rename files quickly and efficiently using custom rules and patterns.</p>
+        <a id="link-bulkrename" href="#">Open Tool</a>
+      </div>
+      <div class="card">
+        <h2>Revizto Based QTO</h2>
+        <p>Quantity take-off dashboard powered by Revizto selection inspector exports.</p>
+        <a id="link-qto" href="#">Open Tool</a>
+      </div>
+      <div class="card">
+        <h2>Revizto Search Set Generator</h2>
+        <p>Generate batch XML search sets for Revizto/Navisworks.</p>
+        <a id="link-revizto" href="#">Open Tool</a>
+      </div>
+      <div class="card">
+        <h2>Shared Parameter File Viewer</h2>
+        <p>View Shared Parameter and Groupings.</p>
+        <a id="link-viewer" href="#">Open Tool</a>
+      </div>
     </div>
 
-    <div class="card">
-      <h2>2D Audit: Aconex vs Revizto</h2>
-      <p>Compare and audit 2D drawing sets between Aconex and Revizto.</p>
-      <a id="link-2daudit" href="#">Open Tool</a>
-    </div>
-
-    <div class="card">
-      <h2>Revit Shared Parameter Creator</h2>
-      <p>Create and manage Revit shared parameter files easily.</p>
-      <a id="link-spf" href="#">Open Tool</a>
-    </div>
-
-    <div class="card">
-      <h2>Shared Parameter File Viewer</h2>
-      <p>View Shared Parameter and Groupings.</p>
-      <a id="link-viewer" href="#">Open Tool</a>
-    </div>
   </div>
 
 <script>
@@ -65,18 +98,24 @@ h1 { text-align:center; margin-top:60px; font-size:32px; color:#e5e7eb; }
   }
 
   const paths = {
-    spf: 'Revit_Create Shared Parameter File.html',
-    revizto: 'Revizto_Create SearchSet XML.html',
-    viewer: 'Revit_Shared Parameter File Viewer.html',
-    pyrevit: 'Pyrevit_audit_Dashboard.html',
-    audit2d: '2D Audit_Aconex vs Revizto.html'
+    spf:         'Revit_Create Shared Parameter File.html',
+    revizto:     'Revizto_Create SearchSet XML.html',
+    viewer:      'Revit_Shared Parameter File Viewer.html',
+    pyrevit:     'Pyrevit_audit_Dashboard.html',
+    audit2d:     '2D Audit_Aconex vs Revizto.html',
+    qto:         'Revizto_QTO_v1.1.html',
+    transmittal: 'Aconex_doc_transmittal.html',
+    bulkrename:  'file_bulk_renamer.html'
   };
 
-  document.getElementById('link-spf').href = buildLink(paths.spf);
-  document.getElementById('link-revizto').href = buildLink(paths.revizto);
-  document.getElementById('link-viewer').href = buildLink(paths.viewer);
-  document.getElementById('link-pyrevit').href = buildLink(paths.pyrevit);
-  document.getElementById('link-2daudit').href = buildLink(paths.audit2d);
+  document.getElementById('link-spf').href         = buildLink(paths.spf);
+  document.getElementById('link-revizto').href      = buildLink(paths.revizto);
+  document.getElementById('link-viewer').href       = buildLink(paths.viewer);
+  document.getElementById('link-pyrevit').href      = buildLink(paths.pyrevit);
+  document.getElementById('link-2daudit').href      = buildLink(paths.audit2d);
+  document.getElementById('link-qto').href          = buildLink(paths.qto);
+  document.getElementById('link-transmittal').href  = buildLink(paths.transmittal);
+  document.getElementById('link-bulkrename').href   = buildLink(paths.bulkrename);
 })();
 </script>
 </body>
