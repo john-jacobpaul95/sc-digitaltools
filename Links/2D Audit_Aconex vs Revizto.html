@@ -114,6 +114,64 @@ tbody td.str { font-family: Arial, sans-serif; font-size: 12px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #1e3a6e; border-radius: 3px; }
 @media print { .topbar, .sidebar, .idle-screen, #pdfModal { display: none !important; } }
+.row-cb { cursor:pointer; accent-color:#3b82f6; width:14px; height:14px; }
+.btn-find { background:linear-gradient(135deg,#7c3aed,#4f46e5); color:#fff; border:none; padding:5px 13px; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer; font-family:Arial,sans-serif; transition:background 0.15s; white-space:nowrap; }
+.btn-find:hover { background:linear-gradient(135deg,#6d28d9,#4338ca); }
+.btn-selall { background:#1e3a6e; color:#93c5fd; border:none; padding:5px 13px; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer; font-family:Arial,sans-serif; transition:background 0.15s; white-space:nowrap; }
+.btn-selall:hover { background:#2d4f8e; }
+.copy-toast { position:fixed; bottom:28px; right:28px; background:#7c3aed; color:#fff; padding:10px 18px; border-radius:8px; font-size:12px; font-weight:bold; box-shadow:0 4px 18px rgba(0,0,0,0.4); z-index:9999; opacity:0; transition:opacity 0.3s; pointer-events:none; }
+.col-filter-block { background:#111827; border:1px solid #1e3a6e; border-radius:7px; padding:8px 10px; }
+.col-filter-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.col-filter-label { font-size:11px; font-weight:bold; color:#93c5fd; }
+.col-filter-remove { background:transparent; border:none; color:#64748b; cursor:pointer; font-size:13px; line-height:1; padding:2px 4px; border-radius:4px; transition:color 0.15s; }
+.col-filter-remove:hover { color:#ef4444; }
+.btn-add-filter { background:transparent; border:1px dashed #1e3a6e; color:#4b6a9e; padding:6px 12px; border-radius:7px; font-size:11px; cursor:pointer; width:100%; font-family:Arial,sans-serif; transition:all 0.15s; text-align:center; }
+.btn-add-filter:hover:not(:disabled) { border-color:#3b82f6; color:#93c5fd; background:rgba(59,130,246,0.05); }
+.btn-add-filter:disabled { opacity:0.35; cursor:default; }
+.col-picker { background:#111827; border:1px solid #3b82f6; border-radius:7px; color:#f9fafb; padding:6px 9px; font-size:12px; font-family:Arial,sans-serif; width:100%; outline:none; cursor:pointer; }
+.btn-rename-trigger { background:linear-gradient(135deg,#0f4c75,#1b6ca8); color:#fff; border:none; padding:8px 12px; border-radius:7px; font-size:11px; font-weight:bold; cursor:pointer; width:100%; font-family:Arial,sans-serif; transition:all 0.15s; text-align:left; display:flex; align-items:center; gap:8px; }
+.btn-rename-trigger:hover:not(:disabled) { background:linear-gradient(135deg,#1b6ca8,#2980b9); }
+.btn-rename-trigger:disabled { opacity:0.35; cursor:default; }
+/* Rename Modal */
+.rm-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:2000; display:flex; align-items:center; justify-content:center; padding:20px; }
+.rm-box { background:#0a1f4e; border:1px solid #1e3a6e; border-radius:14px; width:100%; max-width:1100px; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; }
+.rm-head { background:#0f1f3d; border-bottom:1px solid #1e3a6e; padding:16px 22px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+.rm-title { font-size:15px; font-weight:bold; color:#f9fafb; }
+.rm-close { background:transparent; border:none; color:#64748b; font-size:20px; cursor:pointer; line-height:1; padding:2px 6px; border-radius:5px; }
+.rm-close:hover { color:#ef4444; }
+.rm-body { padding:20px 22px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:16px; }
+.rm-kpi-row { display:flex; gap:10px; flex-wrap:wrap; }
+.rm-kpi { background:#111827; border:1px solid #1e3a6e; border-radius:8px; padding:10px 16px; flex:1; min-width:100px; border-top:3px solid transparent; }
+.rm-kpi.rk-total  { border-top-color:#3b82f6; } .rm-kpi.rk-match  { border-top-color:#22c55e; }
+.rm-kpi.rk-none   { border-top-color:#64748b; } .rm-kpi.rk-multi  { border-top-color:#f59e0b; }
+.rm-kpi.rk-skip   { border-top-color:#a855f7; } .rm-kpi.rk-err    { border-top-color:#ef4444; }
+.rm-kpi-lbl { font-size:9px; font-weight:bold; text-transform:uppercase; letter-spacing:.1em; color:#64748b; }
+.rm-kpi-val { font-size:22px; font-weight:bold; font-family:'Courier New',monospace; margin:3px 0 0; line-height:1; }
+.rk-total .rm-kpi-val{color:#3b82f6;} .rk-match .rm-kpi-val{color:#22c55e;} .rk-none .rm-kpi-val{color:#64748b;}
+.rk-multi .rm-kpi-val{color:#f59e0b;} .rk-skip .rm-kpi-val{color:#a855f7;} .rk-err .rm-kpi-val{color:#ef4444;}
+.rm-tbl-wrap { overflow-x:auto; border:1px solid #1e3a6e; border-radius:8px; }
+.rm-tbl { width:100%; border-collapse:collapse; font-size:11px; }
+.rm-tbl thead th { background:#0f1f3d; padding:8px 12px; text-align:left; font-size:9px; font-weight:bold; text-transform:uppercase; letter-spacing:.08em; color:#64748b; border-bottom:1px solid #1e3a6e; white-space:nowrap; position:sticky; top:0; }
+.rm-tbl tbody tr { border-bottom:1px solid rgba(30,58,110,0.4); }
+.rm-tbl tbody tr:hover { background:rgba(59,130,246,0.04); }
+.rm-tbl tbody td { padding:8px 12px; color:#e2e8f0; font-family:'Courier New',monospace; font-size:10px; white-space:nowrap; vertical-align:middle; }
+.rm-tbl tbody td.nm { font-family:Arial,sans-serif; color:#64748b; font-style:italic; }
+.rm-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:9px; font-weight:bold; text-transform:uppercase; letter-spacing:.05em; }
+.rb-match { background:rgba(34,197,94,0.12); color:#22c55e; }
+.rb-none  { background:rgba(100,116,139,0.12); color:#64748b; }
+.rb-multi { background:rgba(245,158,11,0.12); color:#f59e0b; }
+.rb-skip  { background:rgba(168,85,247,0.12); color:#a855f7; }
+.rb-err   { background:rgba(239,68,68,0.12); color:#ef4444; }
+.rm-foot { background:#0f1f3d; border-top:1px solid #1e3a6e; padding:14px 22px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; gap:12px; }
+.rm-prog { font-size:11px; color:#64748b; flex:1; }
+.btn-pick-folder { background:#1e3a6e; color:#93c5fd; border:none; padding:8px 18px; border-radius:7px; font-size:12px; font-weight:bold; cursor:pointer; font-family:Arial,sans-serif; transition:background 0.15s; }
+.btn-pick-folder:hover { background:#2d4f8e; }
+.btn-commit { background:linear-gradient(135deg,#16a34a,#15803d); color:#fff; border:none; padding:8px 20px; border-radius:7px; font-size:12px; font-weight:bold; cursor:pointer; font-family:Arial,sans-serif; transition:all 0.15s; }
+.btn-commit:hover:not(:disabled) { background:linear-gradient(135deg,#15803d,#166534); }
+.btn-commit:disabled { opacity:0.4; cursor:default; }
+.rm-notice { background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.25); border-radius:8px; padding:10px 14px; font-size:11px; color:#f59e0b; line-height:1.6; }
+.rm-progress-bar-wrap { height:4px; background:#1e3a6e; border-radius:2px; margin-top:6px; }
+.rm-progress-bar { height:4px; background:#22c55e; border-radius:2px; width:0%; transition:width 0.2s; }
 
 </style>
 </head>
@@ -163,6 +221,15 @@ tbody td.str { font-family: Arial, sans-serif; font-size: 12px; }
       </div>
     </div>
     <hr class="s-divider">
+    <div class="section-header">Tools</div>
+    <button class="btn-rename-trigger" id="btnRename" onclick="openRenameModal()" disabled>
+      <span style="font-size:16px;">📁</span>
+      <div>
+        <div>Bulk Rename Files</div>
+        <div style="font-size:9px;font-weight:normal;color:rgba(255,255,255,0.5);margin-top:1px;">Rename downloads from Aconex</div>
+      </div>
+    </button>
+    <hr class="s-divider">
     <div class="section-header">Filters</div>
     <div class="filter-group">
       <div class="filter-label">Discipline</div>
@@ -175,6 +242,8 @@ tbody td.str { font-family: Arial, sans-serif; font-size: 12px; }
         <span class="chip" data-val="MISSING IN REVIZTO" onclick="toggle2dStatus(this,'MISSING IN REVIZTO')">Missing in Revizto</span>
         <span class="chip" data-val="MISSING IN ACONEX" onclick="toggle2dStatus(this,'MISSING IN ACONEX')">Missing in Aconex</span>
       </div>
+      <div id="colFiltersContainer" style="display:flex;flex-direction:column;gap:6px;"></div>
+      <button id="btnAddFilter" class="btn-add-filter" onclick="showColPicker()" disabled>＋ Add Column Filter</button>
       <button class="btn-clear" onclick="clear2dFilters()">✕  Clear Filters</button>
     </div>
   </aside>
@@ -206,6 +275,8 @@ tbody td.str { font-family: Arial, sans-serif; font-size: 12px; }
           <div class="panel-head">
             <div class="panel-title">📐 Sheet Comparison</div>
             <div class="panel-actions">
+              <button class="btn-selall" onclick="toggleSelectAll2d(this)">☐ Select All</button>
+              <button class="btn-find" onclick="findInAconex()">🔍 Find in Aconex</button>
               <button class="btn-sm" onclick="export2dCSV()">⬇ CSV</button>
               <button class="btn-sm" onclick="open2dPdfModal()" style="background:#1e3a6e;">⬇ PDF</button>
             </div>
@@ -213,12 +284,12 @@ tbody td.str { font-family: Arial, sans-serif; font-size: 12px; }
           <div class="tbl-wrap">
             <table id="audit2dTable">
               <thead><tr>
-                <th>Status</th><th>Doc No</th><th>Aconex Title</th>
+                <th style="width:32px;"></th><th>Status</th><th>Doc No</th><th>Aconex Title</th><th>Revizto Sheet Title</th>
                 <th>Rev Date</th><th>Aconex Status</th><th>Discipline</th>
-                <th>Aconex Rev</th><th>Revizto Rev</th>
+                <th>Aconex Rev</th><th>Revizto Rev</th><th>Tracking ID</th>
               </tr></thead>
               <tbody id="audit2dBody">
-                <tr><td colspan="8"><div class="empty"><div class="empty-icon">📐</div><div class="empty-title">No data loaded</div></div></td></tr>
+                <tr><td colspan="11"><div class="empty"><div class="empty-icon">📐</div><div class="empty-title">No data loaded</div></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -245,6 +316,59 @@ tbody td.str { font-family: Arial, sans-serif; font-size: 12px; }
   </div>
 </div>
 
+<!-- RENAME MODAL -->
+<div id="renameModal" class="rm-overlay" style="display:none;">
+  <div class="rm-box">
+    <div class="rm-head">
+      <div class="rm-title">📁 Bulk Rename Files — <span style="color:#64748b;font-weight:normal;font-size:12px;">Document No _ Title _ Revision</span></div>
+      <button class="rm-close" onclick="closeRenameModal()">✕</button>
+    </div>
+    <div class="rm-body" id="rmBody">
+      <!-- Step 1: idle -->
+      <div id="rmStep1">
+        <div class="rm-notice">
+          ⚠️ <strong>Chrome / Edge only</strong> — uses the File System Access API. A <strong>dry-run preview</strong> is shown first; nothing is renamed until you click <em>Commit Renames</em>.<br><br>
+          Files are matched by an exact Document No found within the filename (e.g. <code style="background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:3px;">AR-S100-blah.pdf</code> matches <code style="background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:3px;">S100</code> but <strong>not</strong> <code style="background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:3px;">S1000</code>).<br><br>
+          Proposed name format: <code style="background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:3px;">DocumentNo_Title_Revision.ext</code>
+        </div>
+        <div style="display:flex;justify-content:center;padding:20px 0;">
+          <button class="btn-pick-folder" onclick="pickFolderForRename()" style="font-size:14px;padding:12px 28px;">📂 Pick Download Folder</button>
+        </div>
+      </div>
+      <!-- Step 2: preview (hidden until folder picked) -->
+      <div id="rmStep2" style="display:none;flex-direction:column;gap:14px;">
+        <div class="rm-kpi-row">
+          <div class="rm-kpi rk-total"><div class="rm-kpi-lbl">Total Files</div><div class="rm-kpi-val" id="rmK-total">0</div></div>
+          <div class="rm-kpi rk-match"><div class="rm-kpi-lbl">Matched</div><div class="rm-kpi-val" id="rmK-match">0</div></div>
+          <div class="rm-kpi rk-none"><div class="rm-kpi-lbl">No Match</div><div class="rm-kpi-val" id="rmK-none">0</div></div>
+          <div class="rm-kpi rk-multi"><div class="rm-kpi-lbl">Multi-Match</div><div class="rm-kpi-val" id="rmK-multi">0</div></div>
+          <div class="rm-kpi rk-skip"><div class="rm-kpi-lbl">Already Named</div><div class="rm-kpi-val" id="rmK-skip">0</div></div>
+        </div>
+        <div class="rm-tbl-wrap" style="max-height:45vh;overflow-y:auto;">
+          <table class="rm-tbl">
+            <thead><tr>
+              <th>Original Filename</th>
+              <th>Matched Doc No</th>
+              <th>Proposed New Name</th>
+              <th>Status</th>
+            </tr></thead>
+            <tbody id="rmTbody"></tbody>
+          </table>
+        </div>
+        <div id="rmProgressWrap" style="display:none;">
+          <div style="font-size:11px;color:#94a3b8;" id="rmProgressLbl">Renaming…</div>
+          <div class="rm-progress-bar-wrap"><div class="rm-progress-bar" id="rmProgressBar"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="rm-foot">
+      <div class="rm-prog" id="rmFootNote">Load Aconex data and pick a folder to begin.</div>
+      <button class="btn-pick-folder" onclick="pickFolderForRename()" id="btnPickAgain" style="display:none;">📂 Change Folder</button>
+      <button class="btn-commit" id="btnCommit" onclick="commitRenames()" disabled>✔ Commit Renames</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── STATE ─────────────────────────────────────────────
 let aconexData  = null;
@@ -253,6 +377,8 @@ let audit2dAll  = [];
 let audit2dFiltered = [];
 let sel2dDisciplines = new Set();
 let sel2dStatuses    = new Set();
+let aconexFileHeaders = [];   // all column names from loaded Aconex file
+let columnFilters    = {};    // { 'Column Name': Set(['val1','val2']) }
 
 function colIdx(headers,name){return headers.findIndex(h=>String(h||'').toLowerCase().trim()===name.toLowerCase());}
 
@@ -289,24 +415,41 @@ function handleAconexFile(e){
   const r=new FileReader();
   r.onload=ev=>{
     const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true,cellNF:true});
-    const ws=wb.Sheets[wb.SheetNames[0]];
-    const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-    let headerRowIdx=-1;
-    for(let i=0;i<raw.length;i++){if(raw[i].some(c=>String(c||'').toLowerCase().includes('showing result'))){headerRowIdx=i+1;break;}}
-    if(headerRowIdx===-1){alert('Could not find "Showing Result" in Aconex file.');return;}
-    const headers=raw[headerRowIdx].map(c=>String(c||'').trim());
-    const dataRows=raw.slice(headerRowIdx+1);
-    const iFile=colIdx(headers,'File'),iType=colIdx(headers,'Type'),iDocNo=colIdx(headers,'Document No');
-    const iTitle=colIdx(headers,'Title'),iRevDate=colIdx(headers,'Revision Date');
-    const iStatus=colIdx(headers,'Status'),iDisc=colIdx(headers,'Discipline'),iRev=colIdx(headers,'Revision');
     const validTypes=['drawing','shop drawing','drawing - cad'];
-    aconexData=dataRows.filter(row=>String(row[iFile]||'').toLowerCase().includes('pdf')&&validTypes.includes(String(row[iType]||'').toLowerCase().trim()))
-      .map(row=>({docNo:String(row[iDocNo]||'').trim(),title:String(row[iTitle]||'').trim(),revDate:fmtExcelDate(row[iRevDate]),status:String(row[iStatus]||'').trim(),disc:String(row[iDisc]||'').trim(),rev:String(row[iRev]||'').trim()}))
-      .filter(r=>r.docNo);
+    const allRows=[];
+    let headersSet=false;
+    wb.SheetNames.forEach(sheetName=>{
+      const ws=wb.Sheets[sheetName];
+      const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      let headerRowIdx=-1;
+      for(let i=0;i<raw.length;i++){if(raw[i].some(c=>String(c||'').toLowerCase().includes('showing result'))){headerRowIdx=i+1;break;}}
+      if(headerRowIdx===-1) return;
+      const headers=raw[headerRowIdx].map(c=>String(c||'').trim());
+      if(!headersSet){aconexFileHeaders=headers.filter(Boolean);headersSet=true;}
+      const dataRows=raw.slice(headerRowIdx+1);
+      const iFile=colIdx(headers,'File'),iType=colIdx(headers,'Type'),iDocNo=colIdx(headers,'Document No');
+      const iTitle=colIdx(headers,'Title'),iRevDate=colIdx(headers,'Revision Date');
+      const iStatus=colIdx(headers,'Status'),iDisc=colIdx(headers,'Discipline'),iRev=colIdx(headers,'Revision');
+      const iHyperlink=colIdx(headers,'Hyperlink');
+      dataRows.filter(row=>String(row[iFile]||'').toLowerCase().includes('pdf')&&validTypes.includes(String(row[iType]||'').toLowerCase().trim()))
+        .map(row=>({
+          docNo:String(row[iDocNo]||'').trim(),title:String(row[iTitle]||'').trim(),
+          revDate:fmtExcelDate(row[iRevDate]),status:String(row[iStatus]||'').trim(),
+          disc:String(row[iDisc]||'').trim(),rev:String(row[iRev]||'').trim(),
+          trackingId:extractTrackingId(iHyperlink>=0?row[iHyperlink]:''),
+          _cols:Object.fromEntries(headers.map((h,i)=>[h,String(row[i]??'').trim()]))
+        }))
+        .filter(row=>row.docNo)
+        .forEach(row=>allRows.push(row));
+    });
+    aconexData=allRows;
     const dot=document.getElementById('dot-aconex'); if(dot) dot.className='status-dot ok';
     const lbl=document.getElementById('lbl-aconex'); if(lbl){lbl.textContent='Aconex: '+file.name+' ('+aconexData.length+' rows)';lbl.style.color='#22c55e';}
     const sub=document.getElementById('aconexSub'); if(sub){sub.textContent=file.name;sub.className='folder-sub ok';}
     const box=document.getElementById('aconexBox'); if(box) box.classList.add('loaded');
+    // Enable Add Filter button and Rename button now that headers are available
+    const addBtn=document.getElementById('btnAddFilter'); if(addBtn) addBtn.disabled=false;
+    const renBtn=document.getElementById('btnRename'); if(renBtn) renBtn.disabled=false;
     if(reviztoData) runAudit2d();
   };
   r.readAsArrayBuffer(file);
@@ -320,8 +463,8 @@ function handleReviztoFile(e){
     const ws=wb.Sheets[wb.SheetNames[0]];
     const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
     const headers=raw[0].map(c=>String(c||'').trim());
-    const iSN=colIdx(headers,'Sheet Number'),iRev=colIdx(headers,'Revision');
-    reviztoData=raw.slice(1).map(row=>({sheetNo:String(row[iSN]||'').trim(),rev:String(row[iRev]||'').trim()})).filter(r=>r.sheetNo);
+    const iSN=colIdx(headers,'Sheet Number'),iRev=colIdx(headers,'Revision'),iST=colIdx(headers,'Sheet Name');
+    reviztoData=raw.slice(1).map(row=>({sheetNo:String(row[iSN]||'').trim(),rev:String(row[iRev]||'').trim(),sheetTitle:String(iST>=0?row[iST]||'':'').trim()})).filter(r=>r.sheetNo);
     const dot=document.getElementById('dot-revizto'); if(dot) dot.className='status-dot ok';
     const lbl=document.getElementById('lbl-revizto'); if(lbl){lbl.textContent='Revizto: '+file.name+' ('+reviztoData.length+' rows)';lbl.style.color='#22c55e';}
     const sub=document.getElementById('reviztoSub'); if(sub){sub.textContent=file.name;sub.className='folder-sub ok';}
@@ -333,16 +476,16 @@ function handleReviztoFile(e){
 
 function runAudit2d(){
   if(!aconexData||!reviztoData) return;
-  const rvMap=new Map(); reviztoData.forEach(r=>rvMap.set(r.sheetNo.toUpperCase(),r.rev));
+  const rvMap=new Map(); reviztoData.forEach(r=>rvMap.set(r.sheetNo.toUpperCase(),{rev:r.rev,sheetTitle:r.sheetTitle||'—'}));
   const acSet=new Set(aconexData.map(r=>r.docNo.toUpperCase()));
   const results=[];
   aconexData.forEach(ac=>{
     const key=ac.docNo.toUpperCase();
-    const rvRev=rvMap.has(key)?rvMap.get(key):null;
-    if(rvRev!==null){results.push({...ac,rvRev,_status:ac.rev.trim().toUpperCase()===rvRev.trim().toUpperCase()?'PASS':'FAIL'});}
-    else{results.push({...ac,rvRev:'—',_status:'MISSING IN REVIZTO'});}
+    const rvEntry=rvMap.has(key)?rvMap.get(key):null;
+    if(rvEntry!==null){const rvRev=rvEntry.rev,rvTitle=rvEntry.sheetTitle;results.push({...ac,rvRev,rvTitle,_status:ac.rev.trim().toUpperCase()===rvRev.trim().toUpperCase()?'PASS':'FAIL'});}
+    else{results.push({...ac,rvRev:'—',rvTitle:'—',_status:'MISSING IN REVIZTO'});}
   });
-  reviztoData.forEach(rv=>{if(!acSet.has(rv.sheetNo.toUpperCase()))results.push({docNo:rv.sheetNo,title:'—',revDate:'—',status:'—',disc:'—',rev:'—',rvRev:rv.rev,_status:'MISSING IN ACONEX'});});
+  reviztoData.forEach(rv=>{if(!acSet.has(rv.sheetNo.toUpperCase()))results.push({docNo:rv.sheetNo,title:'—',revDate:'—',status:'—',disc:'—',rev:'—',rvRev:rv.rev,rvTitle:rv.sheetTitle||'—',_status:'MISSING IN ACONEX'});});
   audit2dAll=results;
   build2dDisciplineChips(); apply2dFilters(); update2dKPIs();
   // Show content BEFORE rendering donut so Plotly gets real container dimensions
@@ -358,6 +501,50 @@ function build2dDisciplineChips(){
   discs.forEach(d=>{const c=document.createElement('span');c.className='chip';c.dataset.val=d;c.textContent=d;c.onclick=()=>{c.classList.toggle('active');if(c.classList.contains('active'))sel2dDisciplines.add(d);else sel2dDisciplines.delete(d);apply2dFilters();};w.appendChild(c);});
 }
 
+// ── COLUMN FILTERS ────────────────────────────────────────────────────────
+function showColPicker(){
+  if(!aconexFileHeaders.length){showToast('Load the Aconex file first.');return;}
+  // Remove any existing picker
+  const existing=document.getElementById('colPickerWrap'); if(existing) existing.remove();
+  const already=Object.keys(columnFilters);
+  const available=aconexFileHeaders.filter(h=>h&&!already.includes(h));
+  if(!available.length){showToast('All columns already have filters.');return;}
+  const wrap=document.createElement('div'); wrap.id='colPickerWrap'; wrap.style.cssText='margin-top:4px;';
+  const sel=document.createElement('select'); sel.className='col-picker';
+  const placeholder=document.createElement('option'); placeholder.value=''; placeholder.textContent='— Pick a column —'; sel.appendChild(placeholder);
+  available.forEach(h=>{const o=document.createElement('option');o.value=h;o.textContent=h;sel.appendChild(o);});
+  sel.onchange=()=>{if(sel.value){addColumnFilter(sel.value);wrap.remove();}};
+  // Click-away to cancel
+  setTimeout(()=>{document.addEventListener('click',function handler(ev){if(!wrap.contains(ev.target)&&ev.target.id!=='btnAddFilter'){wrap.remove();document.removeEventListener('click',handler);}});},10);
+  wrap.appendChild(sel); 
+  const container=document.getElementById('colFiltersContainer'); if(container) container.appendChild(wrap);
+  sel.focus();
+}
+
+function addColumnFilter(col){
+  if(columnFilters[col]) return;
+  columnFilters[col]=new Set();
+  // Get unique values for this column from aconexData
+  const vals=[...new Set((aconexData||[]).map(r=>(r._cols&&r._cols[col])||'').filter(v=>v&&v!=='—'))].sort();
+  const container=document.getElementById('colFiltersContainer'); if(!container) return;
+  const block=document.createElement('div'); block.className='col-filter-block'; block.id='cfb-'+col.replace(/\W/g,'_');
+  block.innerHTML=`<div class="col-filter-head"><span class="col-filter-label">📌 ${col}</span><button class="col-filter-remove" onclick="removeColumnFilter('${col.replace(/'/g,"\\'")}')">✕</button></div><div class="chip-scroll" id="cfchips-${col.replace(/\W/g,'_')}"></div>`;
+  container.appendChild(block);
+  const chipWrap=block.querySelector('.chip-scroll');
+  vals.forEach(v=>{
+    const c=document.createElement('span'); c.className='chip'; c.dataset.val=v; c.textContent=v;
+    c.onclick=()=>{c.classList.toggle('active');if(c.classList.contains('active'))columnFilters[col].add(v);else columnFilters[col].delete(v);apply2dFilters();};
+    chipWrap.appendChild(c);
+  });
+  if(!vals.length) chipWrap.innerHTML='<span style="font-size:10px;color:#374151">No values found</span>';
+}
+
+function removeColumnFilter(col){
+  delete columnFilters[col];
+  const block=document.getElementById('cfb-'+col.replace(/\W/g,'_')); if(block) block.remove();
+  apply2dFilters();
+}
+
 function toggle2dStatus(chip,val){
   if(val===''){sel2dStatuses.clear();document.querySelectorAll('#chip2dStatus .chip').forEach(c=>c.classList.remove('active'));chip.classList.add('active');}
   else{const all=document.querySelector('#chip2dStatus .chip[data-val=""]');if(all)all.classList.remove('active');chip.classList.toggle('active');if(chip.classList.contains('active'))sel2dStatuses.add(val);else sel2dStatuses.delete(val);if(sel2dStatuses.size===0&&all)all.classList.add('active');}
@@ -366,8 +553,10 @@ function toggle2dStatus(chip,val){
 
 function clear2dFilters(){
   sel2dDisciplines.clear();sel2dStatuses.clear();
+  columnFilters={};
   document.querySelectorAll('#chip2dDiscipline .chip').forEach(c=>c.classList.remove('active'));
   document.querySelectorAll('#chip2dStatus .chip').forEach(c=>c.classList.remove('active'));
+  const container=document.getElementById('colFiltersContainer'); if(container) container.innerHTML='';
   const all=document.querySelector('#chip2dStatus .chip[data-val=""]'); if(all) all.classList.add('active');
   apply2dFilters();
 }
@@ -376,6 +565,9 @@ function apply2dFilters(){
   audit2dFiltered=audit2dAll.filter(r=>{
     if(sel2dDisciplines.size&&!sel2dDisciplines.has(r.disc)) return false;
     if(sel2dStatuses.size&&!sel2dStatuses.has(r._status)) return false;
+    for(const [col,vals] of Object.entries(columnFilters)){
+      if(vals.size&&!(r._cols&&vals.has(r._cols[col]||''))) return false;
+    }
     return true;
   });
   render2dTable();
@@ -418,18 +610,236 @@ function renderDonut2d(){
 
 function render2dTable(){
   const tb=document.getElementById('audit2dBody'); if(!tb) return;
-  if(!audit2dFiltered.length){tb.innerHTML='<tr><td colspan="8"><div class="empty"><div class="empty-icon">📐</div><div class="empty-title">No results match current filters</div></div></td></tr>';return;}
+  if(!audit2dFiltered.length){tb.innerHTML='<tr><td colspan="11"><div class="empty"><div class="empty-icon">📐</div><div class="empty-title">No results match current filters</div></div></td></tr>';return;}
   const pillMap={'PASS':'p-pass','FAIL':'p-fail','MISSING IN REVIZTO':'p-miss','MISSING IN ACONEX':'p-warn'};
   tb.innerHTML=audit2dFiltered.map(r=>{
     const col=r._status==='FAIL'?'color:#ef4444':r._status==='PASS'?'color:#22c55e':'';
-    return `<tr><td><span class="pill ${pillMap[r._status]||''}">${r._status}</span></td><td>${r.docNo||'—'}</td><td class="str">${r.title||'—'}</td><td>${r.revDate||'—'}</td><td>${r.status||'—'}</td><td class="str">${r.disc||'—'}</td><td style="${col}">${r.rev||'—'}</td><td style="${col}">${r.rvRev||'—'}</td></tr>`;
+    const tid=r.trackingId||'';
+    const tidDisplay=tid?`<span style="font-size:10px;color:#64748b;font-family:'Courier New',monospace;">${tid}</span>`:'<span style="color:#374151">—</span>';
+    return `<tr><td style="text-align:center;padding:9px 8px;"><input type="checkbox" class="row-cb" data-trackingid="${tid}" ${!tid?'disabled title="No tracking ID"':''}></td><td><span class="pill ${pillMap[r._status]||''}">${r._status}</span></td><td>${r.docNo||'—'}</td><td class="str">${r.title||'—'}</td><td class="str">${r.rvTitle||'—'}</td><td>${r.revDate||'—'}</td><td>${r.status||'—'}</td><td class="str">${r.disc||'—'}</td><td style="${col}">${r.rev||'—'}</td><td style="${col}">${r.rvRev||'—'}</td><td>${tidDisplay}</td></tr>`;
   }).join('');
 }
 
-function export2dCSV(){const tbl=document.getElementById('audit2dTable');if(!tbl)return;const rows=[...tbl.rows].map(r=>[...r.cells].map(c=>'"'+c.innerText.replace(/\n/g,' ').replace(/"/g,'""')+'"').join(','));const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'}));a.download='2d_audit_'+new Date().toISOString().slice(0,10)+'.csv';a.click();}
+function export2dCSV(){const tbl=document.getElementById('audit2dTable');if(!tbl)return;const rows=[...tbl.rows].map(r=>[...r.cells].slice(1).map(c=>'"'+c.innerText.replace(/\n/g,' ').replace(/"/g,'""')+'"').join(','));const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'}));a.download='2d_audit_'+new Date().toISOString().slice(0,10)+'.csv';a.click();}
 
 function open2dPdfModal(){const m=document.getElementById('pdfModal2d');if(m)m.style.display='flex';const i=document.getElementById('pdfProjectName2d');if(i)i.focus();}
 function close2dPdfModal(){const m=document.getElementById('pdfModal2d');if(m)m.style.display='none';}
+
+// ── BULK RENAME ───────────────────────────────────────────────────────────
+let renameDir    = null;
+let renameItems  = [];   // array of preview objects
+
+function openRenameModal(){
+  if(!aconexData||!aconexData.length){showToast('Load Aconex data first.');return;}
+  document.getElementById('renameModal').style.display='flex';
+}
+function closeRenameModal(){
+  document.getElementById('renameModal').style.display='none';
+}
+
+function escRx(s){ return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+
+function sanitizeName(s){
+  return String(s||'').replace(/[\/\\:*?"<>|]/g,'_').replace(/\s+/g,' ').trim();
+}
+
+function buildProposed(row, ext){
+  return sanitizeName(row.docNo)+'_'+sanitizeName(row.title)+'_'+sanitizeName(row.rev)+ext;
+}
+
+function matchDocNo(filename, docNo){
+  // Exact word-boundary match: not preceded or followed by alphanumeric
+  const rx = new RegExp('(?<![A-Za-z0-9])'+escRx(docNo)+'(?![A-Za-z0-9])','i');
+  return rx.test(filename);
+}
+
+async function pickFolderForRename(){
+  if(!aconexData||!aconexData.length){showToast('Load Aconex data first.');return;}
+  if(!window.showDirectoryPicker){
+    alert('Your browser does not support the File System Access API.\nPlease use Chrome or Edge.');return;
+  }
+  try {
+    renameDir = await window.showDirectoryPicker({mode:'readwrite'});
+  } catch(e){ return; } // user cancelled
+
+  // Collect all files from the folder (non-recursive)
+  const fileHandles = [];
+  for await(const [name, handle] of renameDir.entries()){
+    if(handle.kind==='file') fileHandles.push({name, handle});
+  }
+
+  // Build preview
+  renameItems = fileHandles.map(({name,handle})=>{
+    const dotIdx = name.lastIndexOf('.');
+    const ext    = dotIdx>=0 ? name.slice(dotIdx).toLowerCase() : '';
+    const base   = dotIdx>=0 ? name.slice(0,dotIdx) : name;
+
+    // Find all matching aconex rows
+    const matches = aconexData.filter(row=>row.docNo && matchDocNo(name, row.docNo));
+
+    let status, proposed=null, matchedDocNo='—';
+
+    if(matches.length===0){
+      status='no-match';
+    } else if(matches.length>1){
+      // Multiple doc nos match — flag for user review
+      status='multi-match';
+      matchedDocNo=matches.map(m=>m.docNo).join(', ');
+    } else {
+      const row=matches[0];
+      matchedDocNo=row.docNo;
+      proposed=buildProposed(row,ext);
+      // Check if already correctly named
+      if(name===proposed){
+        status='skip';
+      } else {
+        status='match';
+      }
+    }
+    return {name, handle, ext, base, matches, matchedDocNo, proposed, status};
+  });
+
+  renderRenamePreview();
+}
+
+function renderRenamePreview(){
+  const step1=document.getElementById('rmStep1');
+  const step2=document.getElementById('rmStep2');
+  step1.style.display='none'; step2.style.display='flex';
+
+  const counts={total:renameItems.length,match:0,'no-match':0,'multi-match':0,skip:0};
+  renameItems.forEach(r=>{ if(counts[r.status]!==undefined) counts[r.status]++; });
+
+  document.getElementById('rmK-total').textContent=counts.total;
+  document.getElementById('rmK-match').textContent=counts.match;
+  document.getElementById('rmK-none').textContent=counts['no-match'];
+  document.getElementById('rmK-multi').textContent=counts['multi-match'];
+  document.getElementById('rmK-skip').textContent=counts.skip;
+
+  const badgeMap={
+    'match':   ['rb-match','MATCHED'],
+    'no-match':['rb-none', 'NO MATCH'],
+    'multi-match':['rb-multi','MULTI-MATCH'],
+    'skip':    ['rb-skip', 'ALREADY NAMED'],
+  };
+
+  const tbody=document.getElementById('rmTbody');
+  tbody.innerHTML=renameItems.map(r=>{
+    const [bc,bl]=badgeMap[r.status]||['rb-none','UNKNOWN'];
+    const proposedCell = r.proposed
+      ? `<span style="color:#22c55e;">${r.proposed}</span>`
+      : `<span class="nm">—</span>`;
+    return `<tr>
+      <td>${r.name}</td>
+      <td>${r.matchedDocNo}</td>
+      <td>${proposedCell}</td>
+      <td><span class="rm-badge ${bc}">${bl}</span></td>
+    </tr>`;
+  }).join('');
+
+  const toRename=counts.match;
+  const foot=document.getElementById('rmFootNote');
+  foot.textContent=`${toRename} file${toRename!==1?'s':''} will be renamed. ${counts['no-match']} unmatched, ${counts['multi-match']} need manual review, ${counts.skip} already correctly named.`;
+
+  document.getElementById('btnPickAgain').style.display='inline-block';
+  const commit=document.getElementById('btnCommit');
+  commit.disabled=toRename===0;
+  commit.textContent=`✔ Commit ${toRename} Rename${toRename!==1?'s':''}`;
+}
+
+async function commitRenames(){
+  const toRename=renameItems.filter(r=>r.status==='match');
+  if(!toRename.length) return;
+
+  const commit=document.getElementById('btnCommit');
+  const pickAgain=document.getElementById('btnPickAgain');
+  commit.disabled=true; pickAgain.style.display='none';
+
+  const progWrap=document.getElementById('rmProgressWrap');
+  const progBar =document.getElementById('rmProgressBar');
+  const progLbl =document.getElementById('rmProgressLbl');
+  progWrap.style.display='block';
+
+  let done=0, errors=0;
+  for(const item of toRename){
+    try {
+      progLbl.textContent=`Renaming ${done+1} of ${toRename.length}: ${item.name} → ${item.proposed}`;
+      progBar.style.width=Math.round((done/toRename.length)*100)+'%';
+
+      // Read original
+      const file   = await item.handle.getFile();
+      const buffer = await file.arrayBuffer();
+
+      // Write new name
+      const newHandle  = await renameDir.getFileHandle(item.proposed,{create:true});
+      const writable   = await newHandle.createWritable();
+      await writable.write(buffer);
+      await writable.close();
+
+      // Delete old
+      await renameDir.removeEntry(item.name);
+
+      item.status='done';
+      done++;
+    } catch(e){
+      console.error('Rename failed:',item.name,e);
+      item.status='err';
+      errors++;
+    }
+  }
+
+  progBar.style.width='100%';
+  progLbl.textContent=`Done — ${done} renamed${errors?', '+errors+' errors':''}.`;
+  commit.textContent='✔ All Renamed';
+
+  // Refresh preview to show final state
+  renderRenamePreview();
+
+  const foot=document.getElementById('rmFootNote');
+  foot.textContent=`✅ ${done} file${done!==1?'s':''} renamed successfully${errors?' | ⚠ '+errors+' errors — check console':''}.`;
+
+  showToast(`✅ ${done} file${done!==1?'s':''} renamed`);
+}
+
+
+function extractTrackingId(hyperlink){
+  if(!hyperlink) return '';
+  const s=String(hyperlink).trim();
+  const qIdx=s.indexOf('?'); if(qIdx===-1) return '';
+  const aIdx=s.indexOf('&',qIdx+1);
+  const segment=aIdx!==-1?s.slice(qIdx+1,aIdx):s.slice(qIdx+1);
+  return segment.replace('=',':');
+}
+
+// ── SELECT ALL ────────────────────────────────────────────────────────────
+let _allSelected=false;
+function toggleSelectAll2d(btn){
+  _allSelected=!_allSelected;
+  document.querySelectorAll('#audit2dBody .row-cb:not(:disabled)').forEach(cb=>{cb.checked=_allSelected;});
+  btn.textContent=_allSelected?'☑ Deselect All':'☐ Select All';
+}
+
+// ── FIND IN ACONEX ────────────────────────────────────────────────────────
+function findInAconex(){
+  const cbs=[...document.querySelectorAll('#audit2dBody .row-cb:checked')];
+  if(!cbs.length){showToast('No rows selected.');return;}
+  const ids=cbs.map(cb=>cb.dataset.trackingid).filter(Boolean);
+  if(!ids.length){showToast('Selected rows have no Tracking IDs.');return;}
+  const query=ids.join(' OR ');
+  navigator.clipboard.writeText(query).then(()=>{
+    showToast(`✓ Copied ${ids.length} tracking ID${ids.length>1?'s':''} to clipboard`);
+  }).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=query;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    showToast(`✓ Copied ${ids.length} tracking ID${ids.length>1?'s':''} to clipboard`);
+  });
+}
+
+function showToast(msg){
+  let t=document.getElementById('copyToast');
+  if(!t){t=document.createElement('div');t.id='copyToast';t.className='copy-toast';document.body.appendChild(t);}
+  t.textContent=msg;t.style.opacity='1';
+  clearTimeout(t._timer);t._timer=setTimeout(()=>{t.style.opacity='0';},2800);
+}
 
 function generate2dPDF(){
   const proj=(document.getElementById('pdfProjectName2d')||{}).value||'';
@@ -444,9 +854,9 @@ function generate2dPDF(){
   const TD='padding:3px 7px;font-size:8px;border-bottom:1px solid #e2e8f0;white-space:nowrap;';
   const kpis=[{l:'Total',v:total,c:'#3b82f6'},{l:'Pass',v:pass,c:'#22c55e'},{l:'Fail',v:fail,c:'#ef4444'},{l:'Miss. Revizto',v:missR,c:'#a855f7'},{l:'Miss. Aconex',v:missA,c:'#f59e0b'}];
   const kpiHtml=kpis.map(k=>`<div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-top:3px solid ${k.c};border-radius:6px;padding:8px 10px;min-width:70px"><div style="font-size:7px;font-weight:bold;text-transform:uppercase;color:#64748b">${k.l}</div><div style="font-size:20px;font-weight:bold;color:${k.c};font-family:monospace">${k.v}</div></div>`).join('');
-  const tblRows=audit2dFiltered.map(r=>{const ac=r._status==='FAIL'?'#991b1b':r._status==='PASS'?'#166534':'#334155';return `<tr><td style="${TD}"><span style="font-size:7px;font-weight:bold;padding:2px 7px;border-radius:10px;${bgMap[r._status]||''}">${r._status}</span></td><td style="${TD}color:#334155">${r.docNo||'—'}</td><td style="${TD}color:#334155;max-width:160px;overflow:hidden;text-overflow:ellipsis">${r.title||'—'}</td><td style="${TD}">${r.revDate||'—'}</td><td style="${TD}">${r.status||'—'}</td><td style="${TD}">${r.disc||'—'}</td><td style="${TD}color:${ac}">${r.rev||'—'}</td><td style="${TD}color:${ac}">${r.rvRev||'—'}</td></tr>`;}).join('');
+  const tblRows=audit2dFiltered.map(r=>{const ac=r._status==='FAIL'?'#991b1b':r._status==='PASS'?'#166534':'#334155';return `<tr><td style="${TD}"><span style="font-size:7px;font-weight:bold;padding:2px 7px;border-radius:10px;${bgMap[r._status]||''}">${r._status}</span></td><td style="${TD}color:#334155">${r.docNo||'—'}</td><td style="${TD}color:#334155;max-width:110px;overflow:hidden;text-overflow:ellipsis">${r.title||'—'}</td><td style="${TD}color:#334155;max-width:110px;overflow:hidden;text-overflow:ellipsis">${r.rvTitle||'—'}</td><td style="${TD}">${r.revDate||'—'}</td><td style="${TD}">${r.status||'—'}</td><td style="${TD}">${r.disc||'—'}</td><td style="${TD}color:${ac}">${r.rev||'—'}</td><td style="${TD}color:${ac}">${r.rvRev||'—'}</td></tr>`;}).join('');
   const logoHtml=`<img src="sarah-white-logo.png" style="height:44px;max-width:160px;object-fit:contain" onerror="this.style.display='none'">`;
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>2D Audit — ${projName}</title><style>@page{size:A3 landscape;margin:12mm}body{font-family:Arial,sans-serif;color:#1e293b;background:white;margin:0;font-size:10px}table{border-collapse:collapse;width:100%}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:2px solid #1e3a6e;margin-bottom:12px"><div><div style="font-size:18px;font-weight:bold;color:#0a1f4e">${projName}</div><div style="font-size:9px;color:#64748b">2D Audit | Aconex vs Revizto · ${date}</div></div>${logoHtml}</div><div style="display:flex;gap:8px;flex:1;flex-wrap:wrap;align-content:flex-start;margin-bottom:10px">${kpiHtml}</div><table><thead><tr><th style="${TH}">Status</th><th style="${TH}">Doc No</th><th style="${TH}">Title</th><th style="${TH}">Rev Date</th><th style="${TH}">Aconex Status</th><th style="${TH}">Discipline</th><th style="${TH}">Aconex Rev</th><th style="${TH}">Revizto Rev</th></tr></thead><tbody>${tblRows}</tbody></table><div style="margin-top:10px;font-size:8px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:5px">Generated by BEP Audit Dashboard · ${date}</div></body></html>`;
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>2D Audit — ${projName}</title><style>@page{size:A3 landscape;margin:12mm}body{font-family:Arial,sans-serif;color:#1e293b;background:white;margin:0;font-size:10px}table{border-collapse:collapse;width:100%}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:2px solid #1e3a6e;margin-bottom:12px"><div><div style="font-size:18px;font-weight:bold;color:#0a1f4e">${projName}</div><div style="font-size:9px;color:#64748b">2D Audit | Aconex vs Revizto · ${date}</div></div>${logoHtml}</div><div style="display:flex;gap:8px;flex:1;flex-wrap:wrap;align-content:flex-start;margin-bottom:10px">${kpiHtml}</div><table><thead><tr><th style="${TH}">Status</th><th style="${TH}">Doc No</th><th style="${TH}">Aconex Title</th><th style="${TH}">Revizto Title</th><th style="${TH}">Rev Date</th><th style="${TH}">Aconex Status</th><th style="${TH}">Discipline</th><th style="${TH}">Aconex Rev</th><th style="${TH}">Revizto Rev</th></tr></thead><tbody>${tblRows}</tbody></table><div style="margin-top:10px;font-size:8px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:5px">Generated by BEP Audit Dashboard · ${date}</div></body></html>`;
   const win=window.open('','_blank'); win.document.write(html); win.document.close();
   win.onload=()=>{ win.focus(); win.print(); };
 }

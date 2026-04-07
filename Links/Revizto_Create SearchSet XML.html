@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Revizto Search Set XML Generator</title>
+<style>
+body { font-family: Arial, sans-serif; margin:0; background:#001B49; color:#f9fafb; }
+h2 { text-align:center; margin-bottom:20px; color:#e5e7eb; }
+.logo { position:absolute; top:15px; right:20px; height:160px; }
+.container { background:#1e293b; padding:30px; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.5); max-width:800px; margin:100px auto 40px auto; }
+label { display:block; margin-top:16px; font-weight:bold; color:#cbd5e1; }
+input, select, textarea { width:100%; padding:10px; margin-top:6px; border-radius:8px; border:1px solid #374151; background:#111827; color:#f9fafb; font-size:14px; }
+input::placeholder, textarea::placeholder { color:#9ca3af; }
+input:focus, select:focus, textarea:focus { outline:none; border-color:#3b82f6; box-shadow:0 0 6px #3b82f6; }
+textarea { min-height:120px; resize:vertical; }
+.btn { margin-top:20px; display:inline-block; padding:12px 20px; border:none; border-radius:8px; cursor:pointer; font-size:15px; font-weight:bold; transition: all 0.2s ease; }
+.btn-primary { background:#3b82f6; color:white; }
+.btn-primary:hover { background:#2563eb; }
+.btn-secondary { background:#374151; color:#f9fafb; }
+.btn-secondary:hover { background:#4b5563; }
+pre { background:#111827; padding:15px; border-radius:8px; margin-top:20px; white-space:pre-wrap; border:1px solid #374151; color:#e5e7eb; }
+
+/* Drawer + overlay */
+.overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  opacity: 0; pointer-events: none; transition: opacity .2s ease; z-index: 1000;
+}
+.overlay.open { opacity: 1; pointer-events: auto; }
+
+.drawer {
+  position: fixed; top: 0; right: 0; height: 100%; width: 440px; max-width: 92vw;
+  background:#0f172a; border-left:1px solid #374151; box-shadow: -12px 0 30px rgba(0,0,0,.45);
+  transform: translateX(100%); transition: transform .25s ease; z-index: 1001; padding: 20px;
+}
+.drawer.open { transform: translateX(0); }
+.drawer h3 { margin: 0 0 10px 0; font-size: 18px; color:#93c5fd; }
+.drawer .small { color:#9ca3af; font-size:12px; margin: 2px 0 12px 0; }
+.drawer .close {
+  position:absolute; top:10px; right:14px; background:transparent; border:none; color:#cbd5e1;
+  font-size:22px; cursor:pointer; line-height:1; padding:6px; border-radius:8px;
+}
+.drawer .close:hover { background:#1f2937; }
+.count-row { margin-top:6px; color:#9ca3af; font-size:13px; }
+.inline-buttons { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }
+</style>
+</head>
+<body>
+<img src="sarah-logo.png" alt="SARAH Logo" class="logo">
+
+<div class="container">
+  <h2>Revizto Search Set XML Generator</h2>
+
+  <label>Search Set Folder Name</label>
+  <input type="text" id="viewFolder" placeholder="e.g. Searchset_Folder">
+
+  <label>Selection Set Name</label>
+  <input type="text" id="setName" placeholder="e.g. Searchset_Name">
+
+  <label>Category</label>
+  <select id="category">
+    <option value="">-- Select Category --</option>
+    <option>Item</option>
+    <option>Revit Type</option>
+    <option>MECHANICAL</option>
+    <option>Tekla Quantity</option>
+    <option>ElementId</option>
+  </select>
+
+  <label>Property</label>
+  <select id="property">
+    <option value="">-- Select Property --</option>
+    <option>Source File</option>
+    <option>Category</option>
+    <option>Family Name</option>
+    <option>Name</option>
+    <option>Type</option>
+    <option>System Classification</option>
+    <option>Workset</option>
+    <option>Value</option>
+  </select>
+
+  <button class="btn btn-secondary" type="button" onclick="enableManualOverride()">Manual Override</button>
+
+  <label>Operation</label>
+  <select id="operation">
+    <option value="equals">equals</option>
+    <option value="contains">contains</option>
+    <option value="not_equals">not_equals</option>
+  </select>
+
+  <label>Values (one per line)</label>
+  <textarea id="values" placeholder="e.g. Duct&#10;Walls&#10;Floors&#10;Ceiling&#10;Pipes" oninput="updateValueCount()"></textarea>
+  <div style="margin-top:5px; color:#9ca3af;">Values count: <span id="valueCount">0</span></div>
+
+  <!-- The single trigger button -->
+  <div class="inline-buttons" style="margin-top:10px;">
+    <button class="btn btn-secondary" type="button" onclick="openGuidDrawer()">Convert GUID → Element ID</button>
+  </div>
+
+  <label>XML File Name</label>
+  <input type="text" id="fileName" placeholder="e.g. searchset.xml">
+
+  <div>
+    <button class="btn btn-primary" onclick="generateXML()">Generate XML</button>
+    <button class="btn btn-secondary" onclick="downloadXML()">Download XML</button>
+  </div>
+
+  <pre id="output"></pre>
+</div>
+
+<!-- Overlay + Drawer -->
+<div id="drawerOverlay" class="overlay" onclick="closeGuidDrawer()"></div>
+<div id="guidDrawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+  <button class="close" aria-label="Close" onclick="closeGuidDrawer()">✕</button>
+  <h3 id="drawerTitle">Revit GUID → Element ID</h3>
+  <div class="small">Uses Excel’s <code>HEX2DEC(RIGHT(Text,8))</code> logic per line.</div>
+
+  <label style="margin-top:6px;">Revit GUIDs (one per line)</label>
+  <textarea id="guidInput" placeholder="e.g. 2a0f1b1c-1e2d-4a5b-8c9d-12345678abcd&#10;f26d0a93-4b1e-4a10-8521-89AB12CD34EF" oninput="updateGuidCount()"></textarea>
+  <div class="count-row">GUIDs: <span id="guidCount">0</span> • IDs produced: <span id="idCount">0</span></div>
+
+  <div class="inline-buttons">
+    <button class="btn btn-secondary" type="button" onclick="convertGuidsToElementIds()">Convert</button>
+    <button class="btn btn-secondary" type="button" onclick="sendElementIdsToValues()">Paste IDs to Values</button>
+    <button class="btn btn-secondary" type="button" onclick="copyIdsToClipboard()">Copy IDs</button>
+    <button class="btn btn-secondary" type="button" onclick="clearGuidPanel()">Clear</button>
+  </div>
+
+  <label>Converted Element IDs</label>
+  <textarea id="elementIdsOutput" readonly placeholder="Converted IDs will appear here..."></textarea>
+</div>
+
+<script>
+function generateGUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+let lastXML = "";
+
+// Update value counter
+function updateValueCount() {
+  const values = document.getElementById("values").value
+    .split("\n")
+    .map(v => v.trim())
+    .filter(v => v);
+  document.getElementById("valueCount").textContent = values.length;
+}
+
+// Enable manual override for Category and Property
+function enableManualOverride() {
+  const categorySelect = document.getElementById("category");
+  const propertySelect = document.getElementById("property");
+
+  const categoryInput = document.createElement("input");
+  categoryInput.type = "text";
+  categoryInput.id = "category";
+  categoryInput.placeholder = "Enter Category manually";
+  categoryInput.value = categorySelect.value;
+  categoryInput.style.width = "100%";
+  categoryInput.style.padding = "10px";
+  categoryInput.style.marginTop = "6px";
+  categoryInput.style.borderRadius = "8px";
+  categoryInput.style.border = "1px solid #374151";
+  categoryInput.style.background = "#111827";
+  categoryInput.style.color = "#f9fafb";
+  categorySelect.parentNode.replaceChild(categoryInput, categorySelect);
+
+  const propertyInput = document.createElement("input");
+  propertyInput.type = "text";
+  propertyInput.id = "property";
+  propertyInput.placeholder = "Enter Property manually";
+  propertyInput.value = propertySelect.value;
+  propertyInput.style.width = "100%";
+  propertyInput.style.padding = "10px";
+  propertyInput.style.marginTop = "6px";
+  propertyInput.style.borderRadius = "8px";
+  propertyInput.style.border = "1px solid #374151";
+  propertyInput.style.background = "#111827";
+  propertyInput.style.color = "#f9fafb";
+  propertySelect.parentNode.replaceChild(propertyInput, propertySelect);
+
+  alert("Manual override enabled! You can now type Category and Property manually.");
+}
+
+function generateXML() {
+  const viewFolder = document.getElementById("viewFolder").value || "SearchSet Folder";
+  const setName = document.getElementById("setName").value || "searchsetname";
+  const category = document.getElementById("category").value;
+  const property = document.getElementById("property").value;
+  const operation = document.getElementById("operation").value;
+  const values = document.getElementById("values").value.split("\n").map(v => v.trim()).filter(v => v);
+
+  const batchSize = 400;
+  let xml = `<?xml version="1.0" encoding="UTF-8" ?>
+<exchange xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://download.autodesk.com/us/navisworks/schemas/nw-exchange-12.0.xsd" units="ft" filename="JJP.nwc" filepath="E:\\JJP Resources">
+  <selectionsets>
+    <viewfolder name="${viewFolder}" guid="${generateGUID()}">`;
+
+  let setCount = 1;
+  for (let i = 0; i < values.length; i += batchSize) {
+    const batch = values.slice(i, i + batchSize);
+    const currentSetName = setCount === 1 ? setName : `${setName}_${setCount}`;
+    xml += `
+      <selectionset name="${currentSetName}" guid="${generateGUID()}">
+        <findspec mode="all" disjoint="0">
+          <conditions>`;
+    batch.forEach(val => {
+      xml += `
+            <condition test="${operation}" flags="74">
+              <category><name internal="LcRevitData_Element">${category}</name></category>
+              <property><name internal="LcRevitPropertyElementId">${property}</name></property>
+              <value><data type="wstring">${val}</data></value>
+            </condition>`;
+    });
+    xml += `
+          </conditions>
+          <locator>/</locator>
+        </findspec>
+      </selectionset>`;
+    setCount++;
+  }
+
+  xml += `
+    </viewfolder>
+  </selectionsets>
+</exchange>`;
+
+  document.getElementById("output").textContent = xml;
+  lastXML = xml;
+}
+
+function downloadXML() {
+  if (!lastXML) { alert("Please generate XML first."); return; }
+  const fileName = document.getElementById("fileName").value || "searchset.xml";
+  const blob = new Blob([lastXML], { type: "application/xml" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = fileName.endsWith(".xml") ? fileName : `${fileName}.xml`;
+  link.click();
+}
+
+/* ---------- Drawer controls ---------- */
+function openGuidDrawer() {
+  document.getElementById('drawerOverlay').classList.add('open');
+  const drawer = document.getElementById('guidDrawer');
+  drawer.classList.add('open');
+  // focus the input quickly
+  setTimeout(() => document.getElementById('guidInput').focus(), 150);
+}
+function closeGuidDrawer() {
+  document.getElementById('drawerOverlay').classList.remove('open');
+  document.getElementById('guidDrawer').classList.remove('open');
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeGuidDrawer();
+});
+
+/* ---------- GUID → Element ID utilities ---------- */
+function updateGuidCount() {
+  const lines = document.getElementById('guidInput').value
+    .split('\n').map(s => s.trim()).filter(Boolean);
+  document.getElementById('guidCount').textContent = lines.length;
+}
+
+function last8HexFromText(txt) {
+  const hexOnly = txt.replace(/[^0-9a-fA-F]/g, '');
+  if (hexOnly.length >= 8) return hexOnly.slice(-8);
+  return txt.trim().slice(-8);
+}
+
+function convertGuidsToElementIds() {
+  const input = document.getElementById('guidInput').value;
+  const lines = input.split('\n').map(s => s.trim()).filter(Boolean);
+
+  const out = [];
+  lines.forEach(line => {
+    const h8 = last8HexFromText(line);
+    if (/^[0-9a-fA-F]{8}$/.test(h8)) {
+      const dec = parseInt(h8, 16).toString(10);
+      out.push(dec);
+    }
+  });
+
+  document.getElementById('elementIdsOutput').value = out.join('\n');
+  document.getElementById('idCount').textContent = out.length;
+}
+
+function sendElementIdsToValues() {
+  const ids = document.getElementById('elementIdsOutput').value.trim();
+  if (!ids) { alert('No converted IDs to paste.'); return; }
+  const valuesEl = document.getElementById('values');
+  valuesEl.value = (valuesEl.value ? valuesEl.value.trim() + '\n' : '') + ids + '\n';
+  updateValueCount();
+  valuesEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function copyIdsToClipboard() {
+  const ids = document.getElementById('elementIdsOutput').value;
+  if (!ids.trim()) { alert('No converted IDs to copy.'); return; }
+  navigator.clipboard.writeText(ids).then(() => {
+    alert('Element IDs copied to clipboard.');
+  });
+}
+
+function clearGuidPanel() {
+  document.getElementById('guidInput').value = '';
+  document.getElementById('elementIdsOutput').value = '';
+  document.getElementById('guidCount').textContent = '0';
+  document.getElementById('idCount').textContent = '0';
+}
+</script>
+</body>
+</html>

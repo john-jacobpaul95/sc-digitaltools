@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>File Bulk Renamer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; background: #001B49; color: #f9fafb; min-height: 100vh; font-size: 14px; }
+.topbar { background: #0a1f4e; border-bottom: 2px solid #1e3a6e; height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; position: sticky; top: 0; z-index: 200; }
+.topbar-title { font-size: 15px; font-weight: bold; color: #f9fafb; display: flex; align-items: center; gap: 10px; }
+.topbar-badge { font-size: 10px; background: rgba(59,130,246,0.2); border: 1px solid #3b82f6; color: #93c5fd; padding: 2px 9px; border-radius: 20px; font-weight: normal; }
+.layout { display: flex; min-height: calc(100vh - 64px); overflow: hidden; }
+.sidebar { width: 316px; min-width: 316px; background: #0a1f4e; border-right: 1px solid #1e3a6e; padding: 16px 14px 24px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex-shrink: 0; }
+.section-header { font-size: 10px; font-weight: bold; letter-spacing: 0.12em; text-transform: uppercase; color: #4b6a9e; padding: 14px 8px 6px; display: flex; align-items: center; gap: 6px; }
+.section-num { width: 18px; height: 18px; border-radius: 50%; background: #1e3a6e; color: #93c5fd; font-size: 9px; font-weight: bold; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.s-divider { border: none; border-top: 1px solid #1e3a6e; margin: 6px 0; }
+.loader-box { background: #111827; border: 1px solid #1e3a6e; border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: border-color 0.2s; position: relative; }
+.loader-box:hover { border-color: #3b82f6; }
+.loader-box.loaded { border-color: #22c55e; }
+.loader-box.xl-loaded { border-color: #a855f7; }
+.loader-box input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.loader-icon { font-size: 20px; flex-shrink: 0; }
+.loader-text { flex: 1; min-width: 0; }
+.loader-label { font-size: 12px; font-weight: bold; color: #cbd5e1; }
+.loader-sub { font-size: 10px; color: #64748b; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.loader-sub.ok { color: #22c55e; }
+.loader-sub.xl { color: #a855f7; }
+.seg-card { background: #111827; border: 1px solid #1e3a6e; border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.seg-card-head { display: flex; align-items: center; gap: 8px; }
+.seg-num-badge { width: 22px; height: 22px; border-radius: 50%; background: #1e3a6e; color: #93c5fd; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.seg-head-label { font-size: 11px; font-weight: bold; color: #93c5fd; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seg-remove { background: transparent; border: none; color: #374151; cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 5px; border-radius: 4px; transition: color 0.15s; flex-shrink: 0; }
+.seg-remove:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
+select.s-sel { background: #0a1f4e; border: 1px solid #1e3a6e; border-radius: 6px; color: #f9fafb; padding: 5px 8px; font-size: 11px; font-family: Arial, sans-serif; width: 100%; outline: none; cursor: pointer; }
+select.s-sel:focus { border-color: #3b82f6; }
+select.s-sel option { background: #0a1f4e; color: #f9fafb; }
+select.s-sel.xl-sel { border-color: rgba(168,85,247,0.5); background: #0a1f4e; color: #c084fc; }
+select.s-sel.xl-sel option { background: #0a1f4e; color: #f9fafb; }
+select.s-sel.xl-sel:focus { border-color: #a855f7; }
+input.s-inp { background: #0a1f4e; border: 1px solid #1e3a6e; border-radius: 6px; color: #f9fafb; padding: 5px 8px; font-size: 11px; font-family: Arial, sans-serif; width: 100%; outline: none; }
+input.s-inp:focus { border-color: #3b82f6; }
+input.s-inp::placeholder { color: #374151; }
+.sub-label { font-size: 10px; color: #64748b; margin-bottom: 3px; }
+.method-toggle { display: flex; border: 1px solid #1e3a6e; border-radius: 6px; overflow: hidden; }
+.method-btn { flex: 1; background: transparent; border: none; color: #64748b; font-size: 10px; font-weight: bold; cursor: pointer; padding: 5px 4px; font-family: Arial, sans-serif; transition: all 0.15s; text-align: center; line-height: 1.3; }
+.method-btn:hover { color: #f9fafb; background: rgba(255,255,255,0.04); }
+.method-btn.active { background: #1e3a6e; color: #93c5fd; }
+.method-btn.xl-active { background: rgba(168,85,247,0.2); color: #c084fc; }
+.method-divider { width: 1px; background: #1e3a6e; flex-shrink: 0; }
+.xl-notice { background: rgba(168,85,247,0.07); border: 1px solid rgba(168,85,247,0.25); border-radius: 7px; padding: 8px 10px; font-size: 10px; color: #c084fc; line-height: 1.5; }
+.xl-notice strong { color: #a855f7; }
+.delim-row { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.d-btn { background: #0a1f4e; border: 1px solid #1e3a6e; border-radius: 5px; color: #94a3b8; padding: 3px 8px; font-size: 10px; cursor: pointer; font-family: 'Courier New', monospace; transition: all 0.12s; line-height: 1.4; }
+.d-btn:hover { border-color: #3b82f6; color: #93c5fd; }
+.d-btn.active { background: #1e3a6e; border-color: #3b82f6; color: #93c5fd; font-weight: bold; }
+input.d-custom { background: #0a1f4e; border: 1px solid #1e3a6e; border-radius: 5px; color: #f9fafb; padding: 3px 5px; font-size: 10px; width: 34px; font-family: 'Courier New', monospace; outline: none; text-align: center; }
+input.d-custom:focus { border-color: #3b82f6; }
+.n-inp { background: #0a1f4e; border: 1px solid #1e3a6e; border-radius: 5px; color: #f9fafb; padding: 3px 6px; font-size: 10px; width: 44px; font-family: 'Courier New', monospace; outline: none; text-align: center; }
+.n-inp:focus { border-color: #3b82f6; }
+.btn-add-seg { background: transparent; border: 1px dashed #1e3a6e; color: #4b6a9e; padding: 7px 12px; border-radius: 7px; font-size: 11px; cursor: pointer; width: 100%; font-family: Arial, sans-serif; transition: all 0.15s; text-align: center; }
+.btn-add-seg:hover { border-color: #3b82f6; color: #93c5fd; background: rgba(59,130,246,0.05); }
+.tmpl-chips { display: flex; flex-wrap: wrap; row-gap: 6px; min-height: 40px; background: #111827; border: 1px solid #1e3a6e; border-radius: 7px; padding: 8px; align-content: flex-start; align-items: center; }
+.t-chip { display: inline-flex; align-items: center; gap: 5px; background: #1e3a6e; border: 1px solid #3b82f6; border-radius: 6px; padding: 4px 10px; font-size: 11px; color: #93c5fd; cursor: grab; user-select: none; flex-shrink: 0; }
+.t-chip:active { cursor: grabbing; opacity: 0.7; }
+.t-chip-rm { background: transparent; border: none; color: #4b6a9e; cursor: pointer; font-size: 12px; padding: 0; line-height: 1; }
+.t-chip-rm:hover { color: #ef4444; }
+input.tmpl-sep-inp { background: #0d1e3f; border: 1px solid #374151; border-radius: 4px; color: #f59e0b; padding: 3px 4px; font-size: 12px; font-family: 'Courier New', monospace; width: 34px; outline: none; text-align: center; flex-shrink: 0; margin: 0 3px; }
+input.tmpl-sep-inp:focus { border-color: #f59e0b; background: rgba(245,158,11,0.07); }
+input.tmpl-sep-inp::placeholder { color: #374151; }
+.t-chip-add { background: #0a1f4e; border: 1px dashed #1e3a6e; border-radius: 6px; padding: 4px 10px; font-size: 11px; color: #4b6a9e; cursor: pointer; transition: all 0.12s; margin: 2px; flex-shrink: 0; }
+.t-chip-add:hover { border-color: #3b82f6; color: #93c5fd; }
+.tmpl-add-label { font-size: 9px; color: #374151; text-transform: uppercase; letter-spacing: 0.08em; flex-basis: 100%; padding: 3px 2px 1px; }
+.tmpl-preview-box { background: #0a1f4e; border: 1px solid #1e3a6e; border-radius: 6px; padding: 7px 10px; font-size: 11px; font-family: 'Courier New', monospace; color: #93c5fd; word-break: break-all; line-height: 1.6; min-height: 32px; white-space: pre-wrap; }
+.main { flex: 1; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; overflow-x: hidden; min-width: 0; }
+.kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; flex-shrink: 0; }
+.kpi { background: #1e293b; border: 1px solid #1e3a6e; border-radius: 10px; padding: 14px 16px; border-top: 3px solid transparent; }
+.kpi.k-blue{border-top-color:#3b82f6;} .kpi.k-green{border-top-color:#22c55e;} .kpi.k-purple{border-top-color:#a855f7;} .kpi.k-amber{border-top-color:#f59e0b;} .kpi.k-red{border-top-color:#ef4444;}
+.kpi-label { font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; }
+.kpi-val { font-size: 28px; font-weight: bold; font-family: 'Courier New', monospace; margin: 4px 0 2px; line-height: 1; }
+.kpi.k-blue .kpi-val{color:#3b82f6;} .kpi.k-green .kpi-val{color:#22c55e;} .kpi.k-purple .kpi-val{color:#a855f7;} .kpi.k-amber .kpi-val{color:#f59e0b;} .kpi.k-red .kpi-val{color:#ef4444;}
+.kpi-sub { font-size: 10px; color: #4b6a9e; }
+.panel { background: #1e293b; border: 1px solid #1e3a6e; border-radius: 10px; overflow: hidden; flex-shrink: 0; }
+.panel-head { background: #0f1f3d; border-bottom: 1px solid #1e3a6e; padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.panel-title { font-size: 13px; font-weight: bold; color: #cbd5e1; }
+.panel-actions { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+.btn-sm { background: #374151; color: #f9fafb; border: none; padding: 5px 13px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; font-family: Arial, sans-serif; transition: background 0.15s; white-space: nowrap; }
+.btn-sm:hover{background:#4b5563;}
+.btn-sm.b-blue{background:#1d4ed8;} .btn-sm.b-blue:hover{background:#2563eb;}
+.btn-sm.b-green{background:#15803d;} .btn-sm.b-green:hover{background:#16a34a;}
+.btn-sm.b-amber{background:#92400e;} .btn-sm.b-amber:hover{background:#b45309;}
+.btn-sm.b-purple{background:#6d28d9;} .btn-sm.b-purple:hover{background:#7c3aed;}
+.tbl-wrap { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 390px); }
+.tbl-wrap table { min-width: 100%; width: auto; border-collapse: collapse; }
+thead th { background: #0f1f3d; padding: 8px 12px; text-align: left; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; border-bottom: 1px solid #1e3a6e; white-space: nowrap; position: sticky; top: 0; z-index: 1; }
+tbody tr { border-bottom: 1px solid rgba(30,58,110,0.4); transition: background 0.1s; }
+tbody tr:hover { background: rgba(59,130,246,0.05); }
+tbody td { padding: 7px 12px; color: #e2e8f0; font-family: 'Courier New', monospace; font-size: 11px; white-space: nowrap; vertical-align: middle; }
+tbody td.str { font-family: Arial, sans-serif; }
+.seg-col { display: none; }
+.show-seg-cols .seg-col { display: table-cell; }
+input.nn-inp { background: transparent; border: none; border-bottom: 1px dashed #1e3a6e; color: #93c5fd; font-family: 'Courier New', monospace; font-size: 11px; width: 100%; min-width: 200px; outline: none; padding: 2px 0; }
+input.nn-inp:focus { border-bottom-color: #3b82f6; background: rgba(59,130,246,0.05); padding: 2px 4px; border-radius: 3px; border-bottom-style: solid; }
+input.nn-inp.manual{color:#a855f7;border-bottom-color:rgba(168,85,247,0.4);}
+input.nn-inp.partial{color:#f59e0b;}
+.pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.06em; font-family: Arial, sans-serif; white-space: nowrap; }
+.p-pending{background:rgba(100,116,139,0.12);color:#94a3b8;} .p-ready{background:rgba(34,197,94,0.12);color:#22c55e;}
+.p-partial{background:rgba(245,158,11,0.12);color:#f59e0b;} .p-manual{background:rgba(168,85,247,0.12);color:#a855f7;}
+.p-done{background:rgba(34,197,94,0.15);color:#4ade80;} .p-skipped{background:rgba(100,116,139,0.12);color:#94a3b8;} .p-error{background:rgba(239,68,68,0.12);color:#ef4444;}
+.paste-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+textarea.paste-ta { background: #111827; border: 1px solid #1e3a6e; border-radius: 7px; color: #f9fafb; font-family: 'Courier New', monospace; font-size: 11px; padding: 10px 12px; resize: vertical; outline: none; width: 100%; min-height: 110px; line-height: 1.7; }
+textarea.paste-ta:focus { border-color: #3b82f6; }
+textarea.paste-ta::placeholder { color: #374151; }
+.notice { border-radius: 8px; padding: 10px 14px; font-size: 11px; line-height: 1.65; }
+.notice.blue{background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);color:#93c5fd;}
+.commit-bar { background: #0f1f3d; border: 1px solid #1e3a6e; border-radius: 10px; padding: 14px 18px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; flex-shrink: 0; }
+.commit-status { font-size: 12px; color: #64748b; flex: 1; min-width: 200px; }
+.btn-commit { background: linear-gradient(135deg,#16a34a,#15803d); color: #fff; border: none; padding: 10px 26px; border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer; font-family: Arial, sans-serif; transition: all 0.15s; }
+.btn-commit:hover:not(:disabled){background:linear-gradient(135deg,#15803d,#166534);}
+.btn-commit:disabled{opacity:0.38;cursor:default;}
+.prog-wrap{flex:1;min-width:200px;} .prog-lbl{font-size:11px;color:#94a3b8;margin-bottom:4px;}
+.prog-bar-bg{height:4px;background:#1e3a6e;border-radius:2px;}
+.prog-bar{height:4px;background:#22c55e;border-radius:2px;width:0%;transition:width 0.2s;}
+.empty-cell{padding:52px 20px;text-align:center;} .empty-icon{font-size:38px;opacity:0.2;margin-bottom:10px;} .empty-title{font-size:14px;font-weight:bold;color:#64748b;margin-bottom:4px;} .empty-sub{font-size:11px;color:#374151;}
+.btn-apply { background: linear-gradient(135deg,#1d4ed8,#2563eb); color: #fff; border: none; padding: 10px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer; font-family: Arial, sans-serif; width: 100%; transition: all 0.15s; }
+.btn-apply:hover{background:linear-gradient(135deg,#2563eb,#3b82f6);}
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.modal-box { background: #0a1f4e; border: 1px solid #1e3a6e; border-radius: 12px; min-width: 280px; max-width: 400px; box-shadow: 0 8px 40px rgba(0,0,0,0.6); overflow: hidden; display: flex; flex-direction: column; }
+.modal-head { background: #0f1f3d; border-bottom: 1px solid #1e3a6e; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; }
+.modal-title { font-size: 13px; font-weight: bold; color: #cbd5e1; }
+.modal-close { background: transparent; border: none; color: #64748b; font-size: 18px; cursor: pointer; padding: 0 4px; border-radius: 4px; line-height: 1; }
+.modal-close:hover { color: #ef4444; }
+.modal-body { padding: 12px 18px; display: flex; flex-direction: column; gap: 4px; max-height: 55vh; overflow-y: auto; }
+.modal-foot { background: #0f1f3d; border-top: 1px solid #1e3a6e; padding: 12px 18px; display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+.col-check-row { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 6px; cursor: pointer; transition: background 0.12s; }
+.col-check-row:not(.fixed-col):hover{background:rgba(59,130,246,0.07);}
+.col-check-row input[type=checkbox]{accent-color:#3b82f6;width:14px;height:14px;cursor:pointer;flex-shrink:0;}
+.col-check-row span{font-size:12px;color:#e2e8f0;}
+.col-check-row.fixed-col span{color:#4b6a9e;font-style:italic;}
+.col-divider{font-size:9px;font-weight:bold;text-transform:uppercase;letter-spacing:0.1em;color:#374151;padding:8px 8px 2px;}
+.toast { position: fixed; bottom: 24px; right: 24px; background: #1d4ed8; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 12px; font-weight: bold; box-shadow: 0 4px 18px rgba(0,0,0,0.4); z-index: 9999; opacity: 0; transition: opacity 0.3s; pointer-events: none; max-width: 360px; }
+::-webkit-scrollbar{width:5px;height:5px;} ::-webkit-scrollbar-track{background:transparent;} ::-webkit-scrollbar-thumb{background:#1e3a6e;border-radius:3px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="width:180px;"></div>
+  <div class="topbar-title">📁 File Bulk Renamer <span class="topbar-badge">CHROME / EDGE</span></div>
+  <div style="width:180px;display:flex;justify-content:flex-end;">
+    <img src="sarah-white-logo.png" alt="" style="height:36px;object-fit:contain;" onerror="this.style.display='none'">
+  </div>
+</div>
+
+<div class="layout">
+<aside class="sidebar">
+
+  <div class="section-header"><span class="section-num">1</span> Source Folder</div>
+  <div class="loader-box" id="folderBox" onclick="pickFolder()">
+    <div class="loader-icon">📂</div>
+    <div class="loader-text">
+      <div class="loader-label">Select Folder</div>
+      <div class="loader-sub" id="folderSub">Click to browse…</div>
+    </div>
+  </div>
+  <div class="loader-box" id="xlBox" style="margin-top:6px;">
+    <input type="file" accept=".xlsx,.xls,.csv" onchange="handleExcelFile(event)">
+    <div class="loader-icon">📊</div>
+    <div class="loader-text">
+      <div class="loader-label">Load Lookup Excel <span style="color:#374151;font-weight:normal;font-size:10px;">(optional)</span></div>
+      <div class="loader-sub" id="xlSub">For "Map From Excel" segments</div>
+    </div>
+  </div>
+
+  <hr class="s-divider">
+
+  <div class="section-header"><span class="section-num">2</span> Define Segments</div>
+  <div style="font-size:10px;color:#4b6a9e;padding:0 6px 6px;line-height:1.5;">Each segment extracts a piece of each filename — via delimiter rules or an Excel lookup.</div>
+  <div id="segContainer" style="display:flex;flex-direction:column;gap:8px;"></div>
+  <button class="btn-add-seg" onclick="addSegment()">＋ Add Segment</button>
+
+  <hr class="s-divider">
+
+  <div class="section-header"><span class="section-num">3</span> Output Template</div>
+  <div style="font-size:10px;color:#4b6a9e;padding:0 6px 4px;line-height:1.5;">Click to add segments. Type <span style="color:#f59e0b;font-family:'Courier New',monospace;">separators</span> between chips. Drag to reorder.</div>
+  <div id="templateChips" class="tmpl-chips"></div>
+  <div style="margin-top:8px;">
+    <div class="sub-label" style="margin-bottom:4px;">Preview (first file):</div>
+    <div class="tmpl-preview-box" id="tmplPreview">(no segments in template)</div>
+  </div>
+  <div style="margin-top:10px;">
+    <button class="btn-apply" onclick="applyTemplate()">⚡ Apply Template to All Files</button>
+  </div>
+
+</aside>
+
+<main class="main">
+  <div class="kpi-row">
+    <div class="kpi k-blue"><div class="kpi-label">Total Files</div><div class="kpi-val" id="kTotal">0</div><div class="kpi-sub">in folder</div></div>
+    <div class="kpi k-green"><div class="kpi-label">Ready</div><div class="kpi-val" id="kReady">0</div><div class="kpi-sub">fully resolved</div></div>
+    <div class="kpi k-purple"><div class="kpi-label">Manual</div><div class="kpi-val" id="kManual">0</div><div class="kpi-sub">overridden</div></div>
+    <div class="kpi k-amber"><div class="kpi-label">Pending</div><div class="kpi-val" id="kPending">0</div><div class="kpi-sub">no new name</div></div>
+    <div class="kpi k-red"><div class="kpi-label">Errors</div><div class="kpi-val" id="kErrors">0</div><div class="kpi-sub">after rename</div></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title">📄 File Preview</div>
+      <div class="panel-actions">
+        <button class="btn-sm b-purple" id="btnToggleSeg" onclick="toggleSegCols()">▶ Show Segments</button>
+        <button class="btn-sm b-amber" onclick="openColPicker()">📋 Copy to Excel</button>
+        <button class="btn-sm b-blue"  onclick="togglePastePanel()">📥 Paste from Excel</button>
+        <button class="btn-sm"         onclick="clearNewNames()">✕ Clear Names</button>
+      </div>
+    </div>
+    <div id="pastePanel" style="display:none;border-bottom:1px solid #1e3a6e;">
+      <div class="paste-body">
+        <div class="notice blue">
+          <strong>How to use:</strong> Copy to Excel → edit filenames → copy the new-name column only → paste below. One filename per line. Extension auto-preserved if omitted.
+        </div>
+        <textarea class="paste-ta" id="pasteArea" placeholder="Paste new filenames here — one per line…"></textarea>
+        <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;">
+          <span id="pasteCount" style="font-size:11px;color:#64748b;"></span>
+          <button class="btn-sm b-green" onclick="applyPastedNames()">✔ Apply Pasted Names</button>
+          <button class="btn-sm" onclick="togglePastePanel()">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table id="mainTable">
+        <thead id="tblHead"><tr>
+          <th style="width:36px;">#</th>
+          <th>Original Filename</th>
+          <th style="min-width:220px;">New Filename</th>
+          <th style="width:90px;">Status</th>
+        </tr></thead>
+        <tbody id="tblBody"><tr><td colspan="10" class="str">
+          <div class="empty-cell">
+            <div class="empty-icon">📂</div>
+            <div class="empty-title">No folder loaded yet</div>
+            <div class="empty-sub">Select a folder from the sidebar to load files.</div>
+          </div>
+        </td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="commit-bar">
+    <div class="commit-status" id="commitStatus">Load a folder and apply a naming template to begin.</div>
+    <div class="prog-wrap" id="progWrap" style="display:none;">
+      <div class="prog-lbl" id="progLbl">Renaming…</div>
+      <div class="prog-bar-bg"><div class="prog-bar" id="progBar"></div></div>
+    </div>
+    <button class="btn-commit" id="btnCommit" onclick="commitRenames()" disabled>✔ Commit Renames</button>
+  </div>
+
+  <div id="reportPanel" style="display:none;" class="panel">
+    <div class="panel-head">
+      <div class="panel-title">📊 Rename Status Report</div>
+      <div class="panel-actions">
+        <button class="btn-sm" onclick="copyReport()">📋 Copy Report</button>
+        <button class="btn-sm" onclick="document.getElementById('reportPanel').style.display='none'">✕ Dismiss</button>
+      </div>
+    </div>
+    <div class="tbl-wrap" style="max-height:300px;">
+      <table>
+        <thead><tr><th>#</th><th>Original Name</th><th>New Name</th><th>Status</th><th>Note</th></tr></thead>
+        <tbody id="reportBody"></tbody>
+      </table>
+    </div>
+    <div id="reportSummary" style="padding:12px 18px;font-size:12px;color:#64748b;border-top:1px solid #1e3a6e;background:#0f1f3d;"></div>
+  </div>
+</main>
+</div>
+
+<div id="colPickerModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeColPicker()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div class="modal-title">📋 Select Columns to Copy</div>
+      <button class="modal-close" onclick="closeColPicker()">✕</button>
+    </div>
+    <div class="modal-body" id="colPickerBody"></div>
+    <div class="modal-foot">
+      <span style="flex:1;font-size:10px;color:#374151;">Copies as TSV — paste into Excel</span>
+      <button class="btn-sm" onclick="closeColPicker()">Cancel</button>
+      <button class="btn-sm b-amber" onclick="executeCopyToExcel()">📋 Copy</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+let dirHandle    = null;
+let files        = [];
+let segments     = [];
+let tmplOrder    = [];
+let tmplSepMap   = {};
+let segIdCtr     = 0;
+let renameReport = [];
+let showSegCols  = false;
+let excelData    = [];
+let excelCols    = [];
+let excelLoaded  = false;
+
+const SEG_TYPES = ['Project Code','Organization Code','Document No','Document Title','Revision','Custom'];
+
+// ── SEGMENT COLUMN TOGGLE ──────────────────────────────────────────────────
+function toggleSegCols() {
+  showSegCols = !showSegCols;
+  document.getElementById('mainTable').classList.toggle('show-seg-cols', showSegCols);
+  document.getElementById('btnToggleSeg').textContent = showSegCols ? '▼ Hide Segments' : '▶ Show Segments';
+}
+
+// ── FOLDER ─────────────────────────────────────────────────────────────────
+async function pickFolder() {
+  if (!window.showDirectoryPicker) { showToast('⚠ Requires Chrome or Edge.'); return; }
+  try {
+    dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    await loadFiles();
+  } catch(e) { if (e.name !== 'AbortError') showToast('⚠ ' + e.message); }
+}
+
+async function loadFiles() {
+  files = [];
+  for await (const [name, handle] of dirHandle.entries()) {
+    if (handle.kind !== 'file') continue;
+    const d = name.lastIndexOf('.');
+    files.push({ name, handle, ext: d > 0 ? name.slice(d) : '', stem: d > 0 ? name.slice(0, d) : name, segs: {}, newName: '', status: 'pending' });
+  }
+  files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  document.getElementById('folderBox').classList.add('loaded');
+  const sub = document.getElementById('folderSub');
+  sub.textContent = '✓ ' + files.length + ' file' + (files.length !== 1 ? 's' : '') + ' — ' + dirHandle.name;
+  sub.className = 'loader-sub ok';
+  reapplyAll(); renderTable(); updateKPIs();
+}
+
+// ── EXCEL LOADER ───────────────────────────────────────────────────────────
+function handleExcelFile(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const wb   = XLSX.read(ev.target.result, { type: 'array' });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      excelData   = rows;
+      excelCols   = rows.length ? Object.keys(rows[0]) : [];
+      excelLoaded = true;
+      document.getElementById('xlBox').classList.add('xl-loaded');
+      const sub = document.getElementById('xlSub');
+      sub.textContent = '✓ ' + rows.length + ' rows, ' + excelCols.length + ' cols — ' + file.name;
+      sub.className = 'loader-sub xl';
+      renderSegments();
+      reapplyAll(); renderTable();
+      showToast('📊 Excel loaded: ' + rows.length + ' rows, ' + excelCols.length + ' columns');
+    } catch(err) { showToast('⚠ Failed to read Excel: ' + err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── SEGMENT MANAGEMENT ─────────────────────────────────────────────────────
+function makeSegment(ov) {
+  const id = ++segIdCtr;
+  return Object.assign({
+    id, type: 'Document No', customLabel: '',
+    fromType: 'start', fromN: 1, fromDelim: '-', toType: 'end', toN: 1, toDelim: '-',
+    extractMethod: 'delimRule',
+    xlJoinType: 'filename', xlJoinSegId: null, xlMatchCol: '', xlValueCol: ''
+  }, ov, { id });
+}
+
+function addSegment(ov) {
+  const seg = makeSegment(ov || {});
+  segments.push(seg);
+  if (tmplOrder.length) {
+    const k = tmplOrder[tmplOrder.length - 1] + '-' + seg.id;
+    if (!tmplSepMap[k]) tmplSepMap[k] = '_';
+  }
+  tmplOrder.push(seg.id);
+  renderSegments(); renderTemplate(); reapplyAll(); renderTable();
+}
+
+function removeSegment(id) {
+  segments  = segments.filter(s => s.id !== id);
+  tmplOrder = tmplOrder.filter(x => x !== id);
+  renderSegments(); renderTemplate(); reapplyAll(); renderTable();
+}
+
+function segLabel(seg) {
+  if (!seg) return '?';
+  return seg.type === 'Custom' ? (seg.customLabel || 'Custom') : seg.type;
+}
+
+// ── RENDER SEGMENTS ────────────────────────────────────────────────────────
+// Uses a helper (buildSegCardHTML) that constructs HTML via string concatenation
+// to avoid deeply-nested template literals which cause "Missing } in template expression"
+function renderSegments() {
+  const c = document.getElementById('segContainer');
+  c.innerHTML = '';
+  segments.forEach(function(seg, idx) {
+    const wrap = document.createElement('div');
+    wrap.className = 'seg-card';
+    wrap.dataset.segid = seg.id;
+    wrap.innerHTML = buildSegCardHTML(seg, idx);
+    c.appendChild(wrap);
+  });
+}
+
+function buildSegCardHTML(seg, idx) {
+  const isCustom = seg.type === 'Custom';
+  const isExcel  = seg.extractMethod === 'mapExcel';
+  const fa = seg.fromType === 'after';
+  const tb = seg.toType   === 'before';
+
+  var h = '';
+
+  // ── Header ──
+  h += '<div class="seg-card-head">';
+  h += '<div class="seg-num-badge">' + (idx + 1) + '</div>';
+  h += '<div class="seg-head-label">' + escH(segLabel(seg)) + '</div>';
+  if (segments.length > 1) h += '<button class="seg-remove" onclick="removeSegment(' + seg.id + ')">✕</button>';
+  h += '</div>';
+
+  // ── Segment type dropdown ──
+  h += '<div><div class="sub-label">Segment Type</div>';
+  h += '<select class="s-sel" onchange="onSegProp(' + seg.id + ',\'type\',this.value)">';
+  SEG_TYPES.forEach(function(t) {
+    h += '<option value="' + t + '"' + (seg.type === t ? ' selected' : '') + '>' + t + '</option>';
+  });
+  h += '</select></div>';
+
+  if (isCustom) {
+    // ── Custom value input ──
+    h += '<div><div class="sub-label">Custom Value <span style="color:#374151">(same for all files)</span></div>';
+    h += '<input class="s-inp" value="' + escH(seg.customLabel) + '" placeholder="e.g. ISSUED" oninput="onCustomLabel(' + seg.id + ',this.value)"></div>';
+
+  } else {
+    // ── Extraction method toggle ──
+    h += '<div><div class="sub-label">Extraction Method</div>';
+    h += '<div class="method-toggle">';
+    h += '<button class="method-btn' + (!isExcel ? ' active' : '') + '" onclick="onExtractMethod(' + seg.id + ',\'delimRule\')">📐 Delimiter Rule</button>';
+    h += '<div class="method-divider"></div>';
+    h += '<button class="method-btn' + (isExcel ? ' xl-active' : '') + '" onclick="onExtractMethod(' + seg.id + ',\'mapExcel\')">📊 Map From Excel</button>';
+    h += '</div></div>';
+
+    if (!isExcel) {
+      // ── FROM rule ──
+      h += '<div><div class="sub-label">Extract FROM</div>';
+      h += '<select class="s-sel" onchange="onSegProp(' + seg.id + ',\'fromType\',this.value)">';
+      h += '<option value="start"' + (seg.fromType === 'start' ? ' selected' : '') + '>Start of filename</option>';
+      h += '<option value="after"' + (seg.fromType === 'after' ? ' selected' : '') + '>After Nth occurrence of delimiter</option>';
+      h += '</select>';
+      if (fa) {
+        h += '<div class="delim-row" style="align-items:center;">';
+        h += '<span style="font-size:10px;color:#64748b;">N=</span>';
+        h += '<input type="number" class="n-inp" min="1" max="30" value="' + seg.fromN + '" onchange="onSegProp(' + seg.id + ',\'fromN\',parseInt(this.value)||1)">';
+        h += '<span style="font-size:10px;color:#64748b;">delim:</span>';
+        h += delimBtnsHtml('from', seg.id, seg.fromDelim);
+        h += '</div>';
+      }
+      h += '</div>';
+
+      // ── TO rule ──
+      h += '<div><div class="sub-label">Extract TO</div>';
+      h += '<select class="s-sel" onchange="onSegProp(' + seg.id + ',\'toType\',this.value)">';
+      h += '<option value="end"' + (seg.toType === 'end' ? ' selected' : '') + '>End of filename</option>';
+      h += '<option value="before"' + (seg.toType === 'before' ? ' selected' : '') + '>Before Nth occurrence of delimiter</option>';
+      h += '</select>';
+      if (tb) {
+        h += '<div class="delim-row" style="align-items:center;">';
+        h += '<span style="font-size:10px;color:#64748b;">N=</span>';
+        h += '<input type="number" class="n-inp" min="1" max="30" value="' + seg.toN + '" onchange="onSegProp(' + seg.id + ',\'toN\',parseInt(this.value)||1)">';
+        h += '<span style="font-size:10px;color:#64748b;">delim:</span>';
+        h += delimBtnsHtml('to', seg.id, seg.toDelim);
+        h += '</div>';
+      }
+      h += '</div>';
+
+    } else {
+      // ── Map From Excel ──
+      if (!excelLoaded) {
+        h += '<div class="xl-notice">⚠ No Excel file loaded yet. Load a lookup Excel above first.</div>';
+      } else {
+        h += '<div class="xl-notice">Match each file\'s <strong>join key</strong> against an Excel column, then pull back another column\'s value.</div>';
+
+        // Join key
+        h += '<div><div class="sub-label">Join Key (from file side)</div>';
+        h += '<select class="s-sel xl-sel" onchange="onXlJoin(' + seg.id + ',this.value)">';
+        h += '<option value="filename"' + (seg.xlJoinType === 'filename' ? ' selected' : '') + '>Original Filename</option>';
+        segments.filter(function(s) { return s.id !== seg.id; }).forEach(function(s) {
+          var sel = (seg.xlJoinType === 'segment' && seg.xlJoinSegId === s.id) ? ' selected' : '';
+          h += '<option value="seg_' + s.id + '"' + sel + '>' + escH(segLabel(s)) + ' (Segment ' + (segments.indexOf(s) + 1) + ')</option>';
+        });
+        h += '</select></div>';
+
+        // Match column
+        h += '<div><div class="sub-label">Match Excel Column <span style="color:#374151">(search join key in this column)</span></div>';
+        h += '<select class="s-sel xl-sel" onchange="onSegProp(' + seg.id + ',\'xlMatchCol\',this.value)">';
+        h += '<option value="">— select column —</option>';
+        excelCols.forEach(function(col) {
+          h += '<option value="' + escH(col) + '"' + (seg.xlMatchCol === col ? ' selected' : '') + '>' + escH(col) + '</option>';
+        });
+        h += '</select></div>';
+
+        // Return column
+        h += '<div><div class="sub-label">Return Excel Column <span style="color:#374151">(value to use as segment)</span></div>';
+        h += '<select class="s-sel xl-sel" onchange="onSegProp(' + seg.id + ',\'xlValueCol\',this.value)">';
+        h += '<option value="">— select column —</option>';
+        excelCols.forEach(function(col) {
+          h += '<option value="' + escH(col) + '"' + (seg.xlValueCol === col ? ' selected' : '') + '>' + escH(col) + '</option>';
+        });
+        h += '</select></div>';
+      }
+    }
+  }
+
+  return h;
+}
+
+function delimBtnsHtml(which, segId, active) {
+  var opts = ['-', '_', '.'];
+  var h = '';
+  opts.forEach(function(d) {
+    h += '<button class="d-btn' + (active === d ? ' active' : '') + '" onclick="onSegDelim(' + segId + ',\'' + which + '\',\'' + d + '\',this)">' + d + '</button>';
+  });
+  var spA = active === ' ';
+  var cv  = (!opts.includes(active) && active !== ' ') ? escH(active) : '';
+  h += '<button class="d-btn' + (spA ? ' active' : '') + '" onclick="onSegDelim(' + segId + ',\'' + which + '\',' + "' '" + ',this)">sp</button>';
+  h += '<input class="d-custom" placeholder="…" maxlength="4" value="' + cv + '" oninput="onSegDelim(' + segId + ',\'' + which + '\',this.value,null)">';
+  return h;
+}
+
+// ── SEGMENT HANDLERS ───────────────────────────────────────────────────────
+function onSegProp(id, prop, val) {
+  var seg = segments.find(function(s) { return s.id === id; }); if (!seg) return;
+  seg[prop] = val;
+  renderSegments();
+  if (prop === 'type') renderTemplate();
+  reapplyAll(); renderTable();
+}
+
+function onCustomLabel(id, val) {
+  var seg = segments.find(function(s) { return s.id === id; }); if (!seg) return;
+  seg.customLabel = val;
+  var card = document.querySelector('.seg-card[data-segid="' + id + '"]');
+  if (card) { var lbl = card.querySelector('.seg-head-label'); if (lbl) lbl.textContent = val || 'Custom'; }
+  renderTemplate(); reapplyAll(); renderTable();
+}
+
+function onExtractMethod(id, method) {
+  var seg = segments.find(function(s) { return s.id === id; }); if (!seg) return;
+  seg.extractMethod = method;
+  renderSegments(); reapplyAll(); renderTable();
+}
+
+function onXlJoin(id, val) {
+  var seg = segments.find(function(s) { return s.id === id; }); if (!seg) return;
+  if (val === 'filename') { seg.xlJoinType = 'filename'; seg.xlJoinSegId = null; }
+  else { seg.xlJoinType = 'segment'; seg.xlJoinSegId = parseInt(val.replace('seg_', '')); }
+  reapplyAll(); renderTable();
+}
+
+function onSegDelim(id, which, val, btn) {
+  var seg = segments.find(function(s) { return s.id === id; }); if (!seg) return;
+  if (which === 'from') seg.fromDelim = val;
+  if (which === 'to')   seg.toDelim   = val;
+  if (btn) {
+    var row = btn.closest('.delim-row');
+    if (row) row.querySelectorAll('.d-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+  }
+  reapplyAll(); renderTable();
+}
+
+// ── EXTRACTION ─────────────────────────────────────────────────────────────
+function nthOcc(str, delim, n) {
+  if (!delim || !str) return -1;
+  var pos = 0, count = 0;
+  while (count < n) {
+    var i = str.indexOf(delim, pos);
+    if (i === -1) return -1;
+    count++;
+    if (count === n) return i;
+    pos = i + delim.length;
+  }
+  return -1;
+}
+
+function extractSeg(f, seg) {
+  if (seg.type === 'Custom') return seg.customLabel || '';
+
+  if (seg.extractMethod === 'mapExcel') {
+    if (!excelLoaded || !seg.xlMatchCol || !seg.xlValueCol) return '';
+    var joinVal = '';
+    if (seg.xlJoinType === 'filename') joinVal = f.name;
+    else if (seg.xlJoinType === 'segment' && seg.xlJoinSegId != null) joinVal = f.segs[seg.xlJoinSegId] || '';
+    var row = excelData.find(function(r) {
+      return String(r[seg.xlMatchCol] || '').trim().toLowerCase() === joinVal.trim().toLowerCase();
+    });
+    return row ? String(row[seg.xlValueCol] || '').trim() : '';
+  }
+
+  // Delimiter rule
+  var stem = f.stem, s = 0, e = stem.length;
+  if (seg.fromType === 'after') {
+    var i = nthOcc(stem, seg.fromDelim, seg.fromN);
+    if (i === -1) return '';
+    s = i + seg.fromDelim.length;
+  }
+  if (seg.toType === 'before') {
+    var j = nthOcc(stem, seg.toDelim, seg.toN);
+    if (j !== -1) e = j;
+  }
+  if (s >= e || s < 0) return '';
+  return stem.slice(s, e).trim();
+}
+
+function reapplyAll() {
+  files.forEach(function(f) {
+    segments.forEach(function(seg) { f.segs[seg.id] = extractSeg(f, seg); });
+  });
+  updateTmplPreview();
+}
+
+// ── TEMPLATE ───────────────────────────────────────────────────────────────
+function getSep(a, b) {
+  var k = a + '-' + b;
+  return tmplSepMap[k] !== undefined ? tmplSepMap[k] : '_';
+}
+
+function buildNewName(f) {
+  return tmplOrder.map(function(id, i) {
+    var p = f.segs[id] || '';
+    return i === 0 ? p : getSep(tmplOrder[i - 1], id) + p;
+  }).join('');
+}
+
+function renderTemplate() {
+  var c = document.getElementById('templateChips');
+  c.innerHTML = '';
+  var used = new Set(tmplOrder);
+
+  tmplOrder.forEach(function(id, i) {
+    var seg = segments.find(function(s) { return s.id === id; }); if (!seg) return;
+
+    if (i > 0) {
+      var prevId = tmplOrder[i - 1];
+      var key    = prevId + '-' + id;
+      if (tmplSepMap[key] === undefined) tmplSepMap[key] = '_';
+      var inp = document.createElement('input');
+      inp.type        = 'text';
+      inp.className   = 'tmpl-sep-inp';
+      inp.value       = tmplSepMap[key];
+      inp.maxLength   = 5;
+      inp.placeholder = '_';
+      inp.dataset.key = key;
+      var prevSeg = segments.find(function(s) { return s.id === prevId; });
+      inp.title = 'Separator between "' + segLabel(prevSeg) + '" and "' + segLabel(seg) + '"';
+      inp.oninput = function() { tmplSepMap[this.dataset.key] = this.value; updateTmplPreview(); };
+      c.appendChild(inp);
+    }
+
+    var chip = document.createElement('div');
+    chip.className  = 't-chip';
+    chip.draggable  = true;
+    chip.dataset.id = id;
+    chip.innerHTML  = '<span>' + escH(segLabel(seg)) + '</span><button class="t-chip-rm" onclick="removeFromTmpl(' + id + ')">✕</button>';
+    chip.addEventListener('dragstart', function(e) { e.dataTransfer.setData('text/plain', String(id)); chip.style.opacity = '0.5'; });
+    chip.addEventListener('dragend',   function()  { chip.style.opacity = ''; });
+    chip.addEventListener('dragover',  function(e) { e.preventDefault(); chip.style.outline = '1px dashed #3b82f6'; });
+    chip.addEventListener('dragleave', function()  { chip.style.outline = ''; });
+    chip.addEventListener('drop', function(e) {
+      e.preventDefault(); chip.style.outline = '';
+      var dragId = parseInt(e.dataTransfer.getData('text/plain'));
+      var di = tmplOrder.indexOf(dragId), ri = tmplOrder.indexOf(id);
+      if (di === -1 || ri === -1 || di === ri) return;
+      tmplOrder.splice(di, 1); tmplOrder.splice(ri, 0, dragId);
+      renderTemplate(); renderTable();
+    });
+    c.appendChild(chip);
+  });
+
+  var unused = segments.filter(function(s) { return !used.has(s.id); });
+  if (unused.length) {
+    var lbl = document.createElement('div');
+    lbl.className   = 'tmpl-add-label';
+    lbl.textContent = tmplOrder.length ? '＋ Add:' : 'Click to add:';
+    c.appendChild(lbl);
+    unused.forEach(function(seg) {
+      var a = document.createElement('div');
+      a.className   = 't-chip-add';
+      a.textContent = '+ ' + segLabel(seg);
+      a.onclick = function() {
+        if (tmplOrder.length) {
+          var k = tmplOrder[tmplOrder.length - 1] + '-' + seg.id;
+          if (!tmplSepMap[k]) tmplSepMap[k] = '_';
+        }
+        tmplOrder.push(seg.id);
+        renderTemplate(); renderTable();
+      };
+      c.appendChild(a);
+    });
+  }
+  updateTmplPreview();
+}
+
+function removeFromTmpl(id) { tmplOrder = tmplOrder.filter(function(x) { return x !== id; }); renderTemplate(); renderTable(); }
+
+function updateTmplPreview() {
+  var box = document.getElementById('tmplPreview');
+  if (!tmplOrder.length) { box.textContent = '(no segments in template)'; return; }
+  var lbl = tmplOrder.map(function(id, i) {
+    var seg = segments.find(function(s) { return s.id === id; });
+    return (i === 0 ? '' : getSep(tmplOrder[i - 1], id)) + (seg ? '[' + segLabel(seg) + ']' : '?');
+  }).join('');
+  if (files.length) {
+    var ex = buildNewName(files[0]);
+    box.textContent = lbl + '\n\u2937 e.g. ' + ex + (files[0].ext || '');
+  } else {
+    box.textContent = lbl;
+  }
+}
+
+function applyTemplate() {
+  if (!files.length)    { showToast('⚠ No files loaded.'); return; }
+  if (!tmplOrder.length){ showToast('⚠ Add segments to the template first.'); return; }
+  var n = 0;
+  files.forEach(function(f) {
+    if (f.status === 'done') return;
+    var parts = tmplOrder.map(function(id) { return f.segs[id] || ''; });
+    f.newName = buildNewName(f) + f.ext;
+    f.status  = parts.some(function(p) { return !p; }) ? 'partial' : 'ready';
+    n++;
+  });
+  renderTable(); updateKPIs();
+  showToast('⚡ Template applied to ' + n + ' file' + (n !== 1 ? 's' : ''));
+}
+
+// ── TABLE ──────────────────────────────────────────────────────────────────
+function renderTable() {
+  var head = document.getElementById('tblHead');
+  var body = document.getElementById('tblBody');
+  if (!files.length) {
+    head.innerHTML = '<tr><th>#</th><th>Original Filename</th><th style="min-width:220px;">New Filename</th><th>Status</th></tr>';
+    body.innerHTML = '<tr><td colspan="10" class="str"><div class="empty-cell"><div class="empty-icon">📂</div><div class="empty-title">No folder loaded</div><div class="empty-sub">Select a folder from the sidebar.</div></div></td></tr>';
+    return;
+  }
+  var hh = '<tr><th style="width:36px;">#</th><th style="min-width:180px;">Original Filename</th>';
+  segments.forEach(function(s) { hh += '<th class="seg-col" style="min-width:120px;">' + escH(segLabel(s)) + '</th>'; });
+  hh += '<th style="min-width:220px;">New Filename</th><th style="width:90px;">Status</th></tr>';
+  head.innerHTML = hh;
+
+  var rows = '';
+  files.forEach(function(f, i) {
+    var sc = '';
+    segments.forEach(function(s) {
+      var v = f.segs[s.id] || '';
+      sc += '<td class="seg-col" style="color:' + (v ? '#93c5fd' : '#374151') + '">' + (v ? escH(v) : '—') + '</td>';
+    });
+    var mn = f.status === 'manual', pt = f.status === 'partial';
+    rows += '<tr>';
+    rows += '<td style="color:#4b6a9e;">' + (i + 1) + '</td>';
+    rows += '<td>' + escH(f.name) + '</td>';
+    rows += sc;
+    rows += '<td><input class="nn-inp' + (mn ? ' manual' : pt ? ' partial' : '') + '" value="' + escH(f.newName) + '" placeholder="(not set)" data-idx="' + i + '" oninput="onNNInput(' + i + ',this.value,this)"></td>';
+    rows += '<td>' + pillHtml(f.status) + '</td>';
+    rows += '</tr>';
+  });
+  body.innerHTML = rows;
+  updateKPIs();
+}
+
+function onNNInput(idx, val, inp) {
+  var f = files[idx]; if (!f) return;
+  f.newName = val.trim(); f.status = f.newName ? 'manual' : 'pending';
+  inp.className = 'nn-inp' + (f.status === 'manual' ? ' manual' : '');
+  updateKPIs();
+}
+
+function pillHtml(s) {
+  var m = { pending:['p-pending','PENDING'], ready:['p-ready','READY'], partial:['p-partial','PARTIAL'], manual:['p-manual','MANUAL'], done:['p-done','DONE'], skipped:['p-skipped','SKIPPED'], error:['p-error','ERROR'] };
+  var r = m[s] || ['p-pending', s.toUpperCase()];
+  return '<span class="pill ' + r[0] + '">' + r[1] + '</span>';
+}
+
+function updateKPIs() {
+  document.getElementById('kTotal').textContent   = files.length;
+  document.getElementById('kReady').textContent   = files.filter(function(f) { return f.status === 'ready'; }).length;
+  document.getElementById('kManual').textContent  = files.filter(function(f) { return f.status === 'manual'; }).length;
+  document.getElementById('kPending').textContent = files.filter(function(f) { return f.status === 'pending' || f.status === 'partial'; }).length;
+  document.getElementById('kErrors').textContent  = files.filter(function(f) { return f.status === 'error'; }).length;
+  var n = files.filter(function(f) { return f.newName && f.status !== 'done'; }).length;
+  document.getElementById('btnCommit').disabled = !n;
+  document.getElementById('commitStatus').textContent = n
+    ? n + ' file' + (n !== 1 ? 's' : '') + ' queued — review then click Commit.'
+    : files.length ? 'Apply a template or type new filenames to begin.' : 'Load a folder to start.';
+}
+
+// ── COLUMN PICKER ──────────────────────────────────────────────────────────
+function openColPicker() {
+  if (!files.length) { showToast('⚠ No files loaded.'); return; }
+  var body = document.getElementById('colPickerBody');
+  var h = '<div class="col-divider">Always included</div>';
+  h += '<div class="col-check-row fixed-col"><input type="checkbox" checked disabled><span># — Row number</span></div>';
+  h += '<div class="col-check-row fixed-col"><input type="checkbox" checked disabled><span>Original Filename</span></div>';
+  h += '<div class="col-check-row fixed-col"><input type="checkbox" checked disabled><span>New Filename</span></div>';
+  if (segments.length) {
+    h += '<div class="col-divider" style="margin-top:6px;">Segment Columns (optional)</div>';
+    segments.forEach(function(s) {
+      h += '<label class="col-check-row"><input type="checkbox" data-segid="' + s.id + '" checked><span>' + escH(segLabel(s)) + '</span></label>';
+    });
+  }
+  body.innerHTML = h;
+  document.getElementById('colPickerModal').style.display = 'flex';
+}
+function closeColPicker() { document.getElementById('colPickerModal').style.display = 'none'; }
+function executeCopyToExcel() {
+  var checked = new Set(Array.from(document.querySelectorAll('#colPickerBody input[data-segid]:checked')).map(function(x) { return parseInt(x.dataset.segid); }));
+  closeColPicker();
+  var active = segments.filter(function(s) { return checked.has(s.id); });
+  var hdr = ['#', 'Original Filename'].concat(active.map(function(s) { return segLabel(s); })).concat(['New Filename']).join('\t');
+  var rows = files.map(function(f, i) {
+    return [i + 1, f.name].concat(active.map(function(s) { return f.segs[s.id] || ''; })).concat([f.newName]).join('\t');
+  });
+  copyText([hdr].concat(rows).join('\n'));
+  showToast('📋 Copied ' + files.length + ' rows (' + (2 + active.length) + ' columns)');
+}
+
+// ── PASTE ──────────────────────────────────────────────────────────────────
+function togglePastePanel() {
+  var p = document.getElementById('pastePanel');
+  p.style.display = p.style.display === 'none' ? '' : 'none';
+  if (p.style.display === '') document.getElementById('pasteArea').focus();
+}
+function applyPastedNames() {
+  var raw = document.getElementById('pasteArea').value.trim(); if (!raw) { showToast('⚠ Nothing pasted.'); return; }
+  var names = raw.split('\n').map(function(l) { return l.trim(); }).filter(Boolean).map(function(l) { var p = l.split('\t'); return p[p.length - 1].trim(); });
+  var n = 0;
+  names.forEach(function(name, i) {
+    if (i >= files.length || !name) return;
+    var f = files[i]; if (f.status === 'done') return;
+    var nn = name;
+    if (f.ext && !nn.toLowerCase().endsWith(f.ext.toLowerCase())) nn += f.ext;
+    f.newName = nn; f.status = 'manual'; n++;
+  });
+  togglePastePanel();
+  document.getElementById('pasteArea').value = '';
+  document.getElementById('pasteCount').textContent = '';
+  renderTable(); updateKPIs();
+  showToast('✅ Applied ' + n + ' pasted name' + (n !== 1 ? 's' : ''));
+}
+function clearNewNames() {
+  files.forEach(function(f) { if (f.status !== 'done') { f.newName = ''; f.status = 'pending'; } });
+  renderTable(); updateKPIs(); showToast('Cleared all pending new names');
+}
+
+// ── COMMIT ─────────────────────────────────────────────────────────────────
+async function commitRenames() {
+  var toRename = files.filter(function(f) { return f.newName && f.status !== 'done'; });
+  if (!toRename.length) { showToast('⚠ Nothing to rename.'); return; }
+  if (!dirHandle)       { showToast('⚠ No folder.'); return; }
+  document.getElementById('btnCommit').disabled = true;
+  var pw = document.getElementById('progWrap'), pb = document.getElementById('progBar'), pl = document.getElementById('progLbl');
+  pw.style.display = '';
+  var done = 0, errors = 0, skipped = 0; renameReport = [];
+  for (var idx = 0; idx < toRename.length; idx++) {
+    var f = toRename[idx];
+    pl.textContent = 'Renaming ' + (done + errors + skipped + 1) + '/' + toRename.length + '…';
+    pb.style.width  = Math.round(((done + errors + skipped) / toRename.length) * 100) + '%';
+    var orig = f.name;
+    try {
+      if (f.newName === f.name) {
+        f.status = 'done';
+        renameReport.push({ orig, newN: f.newName, status: 'skipped', note: 'Already named correctly' });
+        skipped++; continue;
+      }
+      var buf = await (await f.handle.getFile()).arrayBuffer();
+      var nh  = await dirHandle.getFileHandle(f.newName, { create: true });
+      var w   = await nh.createWritable(); await w.write(buf); await w.close();
+      await dirHandle.removeEntry(f.name);
+      f.handle = nh; f.name = f.newName;
+      var d = f.name.lastIndexOf('.');
+      f.ext  = d > 0 ? f.name.slice(d)  : '';
+      f.stem = d > 0 ? f.name.slice(0, d) : f.name;
+      f.status = 'done';
+      renameReport.push({ orig, newN: f.newName, status: 'done', note: '✅ Renamed successfully' }); done++;
+    } catch(e) {
+      f.status = 'error';
+      renameReport.push({ orig, newN: f.newName, status: 'error', note: '⚠ ' + e.message }); errors++;
+    }
+  }
+  pb.style.width = '100%';
+  pl.textContent = 'Complete — ' + done + ' renamed, ' + skipped + ' skipped' + (errors ? ', ' + errors + ' error(s)' : '');
+  renderTable(); updateKPIs(); showStatusReport(done, skipped, errors);
+  showToast('✅ ' + done + ' renamed' + (errors ? ' | ⚠ ' + errors + ' error(s)' : ''));
+}
+
+function showStatusReport(done, skipped, errors) {
+  document.getElementById('reportBody').innerHTML = renameReport.map(function(r, i) {
+    return '<tr><td style="color:#4b6a9e;">' + (i + 1) + '</td><td>' + escH(r.orig) + '</td><td style="color:#93c5fd;">' + escH(r.newN) + '</td><td>' + pillHtml(r.status) + '</td><td class="str" style="font-size:11px;color:#64748b;">' + escH(r.note) + '</td></tr>';
+  }).join('');
+  document.getElementById('reportSummary').innerHTML =
+    '<strong style="color:' + (done ? '#22c55e' : '#64748b') + '">' + done + ' renamed</strong> · ' +
+    '<strong style="color:#94a3b8">' + skipped + ' skipped</strong>' +
+    (errors ? ' · <strong style="color:#ef4444">' + errors + ' error' + (errors !== 1 ? 's' : '') + '</strong>' : '') +
+    '<span style="color:#374151;font-size:10px;margin-left:8px;">— ' + new Date().toLocaleString() + '</span>';
+  var p = document.getElementById('reportPanel'); p.style.display = '';
+  setTimeout(function() { p.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
+}
+function copyReport() {
+  var rows = renameReport.map(function(r, i) { return [i + 1, r.orig, r.newN, r.status, r.note].join('\t'); });
+  copyText(['#\tOriginal\tNew Name\tStatus\tNote'].concat(rows).join('\n'));
+  showToast('📋 Report copied');
+}
+
+// ── UTILS ──────────────────────────────────────────────────────────────────
+function escH(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function copyText(t) {
+  try { navigator.clipboard.writeText(t); }
+  catch { var a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); document.execCommand('copy'); document.body.removeChild(a); }
+}
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.style.opacity = '1';
+  clearTimeout(t._t); t._t = setTimeout(function() { t.style.opacity = '0'; }, 3200);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('pasteArea').addEventListener('input', function() {
+    var l = this.value.split('\n').filter(function(x) { return x.trim(); });
+    document.getElementById('pasteCount').textContent = l.length ? l.length + ' line' + (l.length !== 1 ? 's' : '') : '';
+  });
+});
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+(function init() {
+  var s1 = makeSegment({ type: 'Document No',    fromType: 'start',        toType: 'before', toN: 1, toDelim: '-' });
+  var s2 = makeSegment({ type: 'Document Title', fromType: 'after', fromN: 1, fromDelim: '-', toType: 'before', toN: 2, toDelim: '-' });
+  var s3 = makeSegment({ type: 'Revision',       fromType: 'after', fromN: 2, fromDelim: '-', toType: 'end' });
+  segments  = [s1, s2, s3];
+  tmplOrder = [s1.id, s2.id, s3.id];
+  tmplSepMap[s1.id + '-' + s2.id] = '_';
+  tmplSepMap[s2.id + '-' + s3.id] = '_';
+  renderSegments(); renderTemplate(); updateKPIs();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Transmittal Matrix | Aconex</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; background: #001B49; color: #f9fafb; min-height: 100vh; font-size: 14px; }
+
+.topbar { background: #0a1f4e; border-bottom: 2px solid #1e3a6e; height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; position: sticky; top: 0; z-index: 200; gap: 12px; }
+
+.sidebar { width: 272px; min-width: 272px; background: #0a1f4e; border-right: 1px solid #1e3a6e; padding: 16px 12px; display: flex; flex-direction: column; gap: 5px; overflow-y: auto; }
+.section-header { font-size: 10px; font-weight: bold; letter-spacing: 0.12em; text-transform: uppercase; color: #4b6a9e; padding: 12px 8px 5px 8px; }
+
+/* File upload boxes */
+.folder-box { background: #111827; border: 1px solid #1e3a6e; border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: border-color 0.2s; position: relative; overflow: hidden; }
+.folder-box:hover { border-color: #3b82f6; }
+.folder-box.loaded { border-color: #22c55e; }
+.folder-box input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.folder-text { flex: 1; min-width: 0; }
+.folder-label { font-size: 12px; font-weight: bold; color: #cbd5e1; }
+.folder-sub { font-size: 10px; color: #64748b; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.folder-sub.ok { color: #22c55e; }
+
+/* Excel SVG icon */
+.xls-icon { flex-shrink: 0; width: 28px; height: 28px; }
+
+.btn-config { width: 100%; background: #0f1f3d; border: 1px solid #1e3a6e; color: #93c5fd; padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: bold; font-family: Arial, sans-serif; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.15s; }
+.btn-config:hover { border-color: #3b82f6; background: #132040; color: #bfdbfe; }
+.btn-config:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+
+.status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: #374151; }
+.status-dot.ok  { background: #22c55e; }
+.status-dot.err { background: #ef4444; }
+.s-divider { border: none; border-top: 1px solid #1e3a6e; margin: 4px 0; }
+
+/* View toggle */
+.view-toggle { display: flex; flex-direction: column; gap: 3px; }
+.vt-btn { width: 100%; padding: 8px 12px; border-radius: 7px; font-size: 11px; font-weight: bold; color: #64748b; background: #0f1f3d; border: 1px solid #1e3a6e; cursor: pointer; font-family: Arial, sans-serif; transition: all 0.15s; text-align: left; display: flex; align-items: center; gap: 8px; }
+.vt-btn:hover { color: #f9fafb; border-color: #3b82f6; background: #132040; }
+.vt-btn.active    { background: linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff; border-color:transparent; box-shadow:0 2px 8px rgba(59,130,246,0.4); }
+.vt-btn.active-wf { background: linear-gradient(135deg,#a855f7,#7c3aed); color:#fff; border-color:transparent; box-shadow:0 2px 8px rgba(168,85,247,0.4); }
+
+/* KPI sidebar cards */
+.kpi-sm { background: #111827; border: 1px solid #1e3a6e; border-radius: 8px; padding: 10px 12px; border-left: 3px solid transparent; }
+.kpi-sm.k-blue   { border-left-color: #3b82f6; } .kpi-sm.k-green  { border-left-color: #22c55e; }
+.kpi-sm.k-red    { border-left-color: #ef4444; } .kpi-sm.k-amber  { border-left-color: #f59e0b; }
+.kpi-sm.k-purple { border-left-color: #a855f7; }
+.kpi-sm-label { font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; }
+.kpi-sm-val   { font-size: 20px; font-weight: bold; font-family: 'Courier New', monospace; margin: 3px 0 1px; line-height: 1; }
+.kpi-sm.k-blue   .kpi-sm-val { color: #3b82f6; } .kpi-sm.k-green  .kpi-sm-val { color: #22c55e; }
+.kpi-sm.k-red    .kpi-sm-val { color: #ef4444; } .kpi-sm.k-amber  .kpi-sm-val { color: #f59e0b; }
+.kpi-sm.k-purple .kpi-sm-val { color: #a855f7; }
+.kpi-sm-sub { font-size: 10px; color: #4b6a9e; }
+
+.legend-row { display: flex; align-items: center; gap: 7px; padding: 3px 8px; font-size: 11px; color: #94a3b8; }
+.legend-box { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 9px; }
+
+.search-input { background: #111827; border: 1px solid #1e3a6e; border-radius: 7px; color: #f9fafb; padding: 6px 10px; font-size: 12px; font-family: Arial, sans-serif; width: 100%; outline: none; }
+.search-input:focus { border-color: #3b82f6; }
+
+.main { flex: 1; padding: 24px 28px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; min-width: 0; overflow-x: hidden; }
+
+.idle-screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 60px 20px; text-align: center; }
+.idle-icon  { font-size: 52px; opacity: 0.2; }
+.idle-title { font-size: 18px; font-weight: bold; color: #4b6a9e; }
+.idle-sub   { font-size: 13px; color: #374151; max-width: 440px; line-height: 1.6; }
+
+.panel { background: #1e293b; border: 1px solid #1e3a6e; border-radius: 10px; overflow: hidden; }
+.panel-head { background: #0f1f3d; border-bottom: 1px solid #1e3a6e; padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.panel-title { font-size: 13px; font-weight: bold; color: #cbd5e1; }
+.panel-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.btn-sm { background: #374151; color: #f9fafb; border: none; padding: 5px 13px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; font-family: Arial, sans-serif; transition: background 0.15s; white-space: nowrap; }
+.btn-sm:hover { background: #4b5563; }
+
+/* Matrix table */
+.matrix-wrap { overflow: auto; max-height: calc(100vh - 210px); }
+.matrix-table { border-collapse: collapse; font-size: 12px; width: max-content; min-width: 100%; }
+.matrix-table th { background: #0f1f3d; padding: 9px 12px; text-align: center; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; border-bottom: 1px solid #1e3a6e; border-right: 1px solid rgba(30,58,110,0.5); white-space: nowrap; position: sticky; top: 0; z-index: 5; }
+.matrix-table th.col-org   { text-align: left; position: sticky; left: 0; z-index: 10; background: #0f1f3d; min-width: 210px; }
+.matrix-table th.col-cat   { text-align: center; min-width: 110px; }
+.matrix-table th.col-total { background: #0b1930; border-left: 2px solid #1e3a6e; }
+.matrix-table td { padding: 8px 10px; border-bottom: 1px solid rgba(30,58,110,0.35); border-right: 1px solid rgba(30,58,110,0.22); text-align: center; font-family: 'Courier New', monospace; font-size: 11px; white-space: nowrap; }
+.matrix-table td.td-org { font-family: Arial, sans-serif; font-size: 12px; text-align: left; background: #0d1a35; position: sticky; left: 0; z-index: 3; border-right: 2px solid #1e3a6e; padding: 8px 12px; color: #e2e8f0; min-width: 210px; }
+.matrix-table td.td-cat   { text-align: center; }
+.matrix-table td.td-total { background: rgba(30,58,110,0.18); border-left: 2px solid rgba(30,58,110,0.6); font-weight: bold; }
+.matrix-table tbody tr:hover td     { background: rgba(59,130,246,0.05); }
+.matrix-table tbody tr:hover td.td-org { background: rgba(59,130,246,0.1); }
+
+.cat-pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.06em; }
+.cat-consultant    { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.25); }
+.cat-subcontractor { background: rgba(245,158,11,0.13); color: #fbbf24; border: 1px solid rgba(245,158,11,0.22); }
+.cat-principal     { background: rgba(22,197,94,0.1);   color: #22c55e; border: 1px solid rgba(22,197,94,0.2); }
+
+.row-sarah td     { background: rgba(22,197,94,0.04) !important; }
+.row-sarah td.td-org { background: rgba(22,197,94,0.08) !important; font-weight: bold; color: #22c55e !important; }
+.row-totals td    { background: rgba(30,58,110,0.3) !important; font-weight: bold; color: #93c5fd; border-top: 2px solid #1e3a6e; }
+.row-totals td.td-org { background: rgba(30,58,110,0.4) !important; color: #64748b; font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; }
+
+.cell-tick { color: #22c55e; font-size: 14px; }
+.cell-miss-btn { background: transparent; border: none; cursor: pointer; color: #ef4444; font-family: 'Courier New', monospace; font-size: 11px; font-weight: bold; padding: 2px 6px; border-radius: 4px; transition: all 0.15s; display: inline-flex; align-items: center; gap: 3px; }
+.cell-miss-btn:hover { background: rgba(239,68,68,0.15); color: #fca5a5; }
+.cell-na { color: #2d3f5c; }
+
+/* ── Workflow view ── */
+.wf-kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+.wf-kpi-card { background: #1e293b; border: 1px solid #1e3a6e; border-radius: 10px; padding: 16px 18px; border-top: 3px solid transparent; transition: all 0.18s; }
+.wf-kpi-card.clickable { cursor: pointer; }
+.wf-kpi-card.clickable:hover { border-color: #3b82f6; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+.wf-kpi-card.k-red    { border-top-color: #ef4444; } .wf-kpi-card.k-green  { border-top-color: #22c55e; }
+.wf-kpi-card.k-amber  { border-top-color: #f59e0b; } .wf-kpi-card.k-blue   { border-top-color: #3b82f6; }
+.wf-kpi-card.k-purple { border-top-color: #a855f7; } .wf-kpi-card.k-teal   { border-top-color: #14b8a6; }
+.wf-kpi-card.k-pink   { border-top-color: #ec4899; } .wf-kpi-card.k-slate  { border-top-color: #64748b; }
+.wf-kpi-label { font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; }
+.wf-kpi-val   { font-size: 32px; font-weight: bold; font-family: 'Courier New', monospace; margin: 6px 0 3px; line-height: 1; }
+.wf-kpi-card.k-red    .wf-kpi-val { color: #ef4444; } .wf-kpi-card.k-green  .wf-kpi-val { color: #22c55e; }
+.wf-kpi-card.k-amber  .wf-kpi-val { color: #f59e0b; } .wf-kpi-card.k-blue   .wf-kpi-val { color: #3b82f6; }
+.wf-kpi-card.k-purple .wf-kpi-val { color: #a855f7; } .wf-kpi-card.k-teal   .wf-kpi-val { color: #14b8a6; }
+.wf-kpi-card.k-pink   .wf-kpi-val { color: #ec4899; } .wf-kpi-card.k-slate  .wf-kpi-val { color: #94a3b8; }
+.wf-kpi-sub { font-size: 11px; color: #4b6a9e; }
+.wf-click-hint { font-size: 9px; color: #374151; margin-top: 4px; }
+.wf-kpi-card.clickable:hover .wf-click-hint { color: #60a5fa; }
+
+.wf-filter-bar { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; padding: 12px 18px; background: #0f1f3d; border-bottom: 1px solid #1e3a6e; }
+.wf-filter-group { display: flex; flex-direction: column; gap: 4px; }
+.wf-filter-label { font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; color: #4b6a9e; }
+.wf-select { background: #111827; border: 1px solid #1e3a6e; color: #f9fafb; padding: 6px 10px; border-radius: 7px; font-size: 12px; font-family: Arial, sans-serif; cursor: pointer; outline: none; min-width: 160px; }
+.wf-select:focus { border-color: #3b82f6; }
+.wf-table-wrap { overflow: auto; max-height: calc(100vh - 290px); }
+.wf-table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 12px; }
+.wf-table thead th { background: #0f1f3d; padding: 9px 13px; text-align: left; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; border-bottom: 1px solid #1e3a6e; white-space: nowrap; position: sticky; top: 0; z-index: 2; }
+.wf-table tbody tr { border-bottom: 1px solid rgba(30,58,110,0.35); transition: background 0.1s; }
+.wf-table tbody tr:hover { background: rgba(59,130,246,0.05); }
+.wf-table tbody td { padding: 8px 13px; color: #e2e8f0; font-size: 12px; white-space: nowrap; }
+.wf-table tbody td.td-mono { font-family: 'Courier New', monospace; font-size: 11px; }
+.wf-table tbody td.td-long { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+.rs-pill { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* ── Aconex search bar at bottom of detail modal ── */
+.aconex-bar { background: #0b1930; border-top: 2px solid #1e3a6e; padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+.aconex-bar-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.aconex-label { font-size: 11px; font-weight: bold; color: #64748b; }
+.aconex-count { font-size: 11px; color: #3b82f6; font-weight: bold; font-family: 'Courier New', monospace; }
+.aconex-textarea { width: 100%; background: #111827; border: 1px solid #1e3a6e; border-radius: 7px; color: #93c5fd; font-family: 'Courier New', monospace; font-size: 11px; padding: 8px 10px; resize: vertical; min-height: 52px; outline: none; line-height: 1.5; }
+.aconex-textarea:focus { border-color: #3b82f6; }
+.btn-aconex { background: linear-gradient(135deg,#3b82f6,#1d4ed8); color: #fff; border: none; padding: 8px 18px; border-radius: 7px; font-size: 12px; font-weight: bold; cursor: pointer; font-family: Arial, sans-serif; display: flex; align-items: center; gap: 7px; transition: all 0.15s; white-space: nowrap; }
+.btn-aconex:hover { background: linear-gradient(135deg,#60a5fa,#3b82f6); box-shadow: 0 4px 14px rgba(59,130,246,0.4); }
+.btn-aconex:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-sel-all { background: transparent; border: 1px solid #1e3a6e; color: #94a3b8; padding: 5px 11px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; font-family: Arial, sans-serif; transition: all 0.15s; white-space: nowrap; }
+.btn-sel-all:hover { background: #111827; border-color: #3b82f6; color: #93c5fd; }
+
+/* Toast notification */
+.toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px); background: #22c55e; color: #fff; padding: 12px 24px; border-radius: 10px; font-size: 13px; font-weight: bold; z-index: 9999; opacity: 0; transition: all 0.3s; pointer-events: none; white-space: nowrap; box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* Row checkbox */
+.row-cb { width: 15px; height: 15px; accent-color: #3b82f6; cursor: pointer; }
+.row-selected td { background: rgba(59,130,246,0.08) !important; }
+.row-selected td.td-org { background: rgba(59,130,246,0.12) !important; }
+.tracking-id-cell { font-family: 'Courier New', monospace; font-size: 10px; color: #60a5fa; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+.tracking-id-cell.missing { color: #374151; font-style: italic; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1e3a6e; border-radius: 3px; }
+
+/* ══ MODALS ══ */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 500; align-items: center; justify-content: center; padding: 20px; }
+.modal-overlay.open { display: flex; }
+.modal-close { background: #374151; border: none; color: #f9fafb; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s; }
+.modal-close:hover { background: #ef4444; }
+
+/* Configure modal */
+.config-box { background: #0a1f4e; border: 1px solid #1e3a6e; border-radius: 12px; width: 720px; max-width: 96vw; max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+.config-head { background: #0f1f3d; border-bottom: 1px solid #1e3a6e; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; border-radius: 12px 12px 0 0; flex-shrink: 0; gap: 10px; }
+.config-toolbar { padding: 10px 20px; display: flex; gap: 8px; align-items: center; border-bottom: 1px solid rgba(30,58,110,0.4); flex-shrink: 0; flex-wrap: wrap; }
+.config-search { flex: 1; min-width: 160px; background: #111827; border: 1px solid #1e3a6e; border-radius: 7px; color: #f9fafb; padding: 6px 10px; font-size: 12px; font-family: Arial, sans-serif; outline: none; }
+.config-search:focus { border-color: #3b82f6; }
+.config-body { overflow-y: auto; flex: 1; }
+.config-table { width: 100%; border-collapse: collapse; }
+.config-table thead th { background: #0d1a35; padding: 8px 16px; text-align: left; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.07em; color: #4b6a9e; border-bottom: 1px solid #1e3a6e; position: sticky; top: 0; }
+.config-table tbody tr { border-bottom: 1px solid rgba(30,58,110,0.3); transition: background 0.1s; }
+.config-table tbody tr:hover { background: rgba(59,130,246,0.04); }
+.config-table tbody tr.row-hidden-org { opacity: 0.42; }
+.config-table tbody td { padding: 7px 16px; font-size: 12px; color: #e2e8f0; }
+.config-select { background: #111827; border: 1px solid #1e3a6e; color: #f9fafb; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-family: Arial, sans-serif; cursor: pointer; outline: none; min-width: 130px; }
+.config-select:focus { border-color: #3b82f6; }
+.config-select.sel-consultant    { border-color: #3b82f6; color: #60a5fa; }
+.config-select.sel-subcontractor { border-color: #f59e0b; color: #fbbf24; }
+.config-foot { border-top: 1px solid #1e3a6e; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: #0f1f3d; border-radius: 0 0 12px 12px; gap: 10px; flex-wrap: wrap; }
+.config-summary { font-size: 11px; color: #64748b; }
+.config-summary b { color: #f9fafb; }
+.btn-bulk { background: transparent; border: 1px solid #1e3a6e; color: #94a3b8; padding: 5px 11px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; font-family: Arial, sans-serif; transition: all 0.15s; white-space: nowrap; }
+.btn-bulk.bc { border-color: rgba(59,130,246,0.4); color: #60a5fa; } .btn-bulk.bc:hover { background: rgba(59,130,246,0.08); }
+.btn-bulk.bs { border-color: rgba(245,158,11,0.4); color: #fbbf24; } .btn-bulk.bs:hover { background: rgba(245,158,11,0.08); }
+.btn-bulk:hover { background: #111827; }
+.btn-hide { background: transparent; border: 1px solid rgba(100,116,139,0.3); color: #4b6a9e; padding: 3px 9px; border-radius: 5px; font-size: 10px; font-weight: bold; cursor: pointer; font-family: Arial, sans-serif; transition: all 0.15s; }
+.btn-hide:hover { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,0.06); }
+.btn-show { background: transparent; border: 1px solid rgba(34,197,94,0.3); color: #22c55e; padding: 3px 9px; border-radius: 5px; font-size: 10px; font-weight: bold; cursor: pointer; font-family: Arial, sans-serif; transition: all 0.15s; }
+.btn-show:hover { background: rgba(34,197,94,0.08); }
+
+/* Detail modal */
+.detail-box { background: #0a1f4e; border: 1px solid #1e3a6e; border-radius: 12px; width: 94vw; max-width: 1380px; max-height: 92vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+.detail-head { background: #0f1f3d; border-bottom: 1px solid #1e3a6e; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; border-radius: 12px 12px 0 0; gap: 12px; flex-shrink: 0; }
+.detail-body { overflow: auto; flex: 1; }
+.detail-foot { border-top: 1px solid #1e3a6e; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; background: #0f1f3d; border-radius: 0 0 12px 12px; gap: 10px; flex-wrap: wrap; }
+.modal-tbl { width: 100%; border-collapse: collapse; font-size: 11px; }
+.modal-tbl thead th { background: #0d1a35; padding: 9px 12px; text-align: left; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.07em; color: #4b6a9e; border-bottom: 1px solid #1e3a6e; white-space: nowrap; position: sticky; top: 0; z-index: 2; }
+.modal-tbl thead th.th-cb { width: 36px; text-align: center; }
+.modal-tbl tbody tr { border-bottom: 1px solid rgba(30,58,110,0.3); cursor: pointer; }
+.modal-tbl tbody tr:hover { background: rgba(59,130,246,0.06); }
+.modal-tbl tbody tr.row-selected { background: rgba(59,130,246,0.1) !important; }
+.modal-tbl tbody td { padding: 8px 12px; color: #e2e8f0; font-family: 'Courier New', monospace; white-space: nowrap; font-size: 11px; }
+.modal-tbl tbody td.td-str { font-family: Arial, sans-serif; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+.modal-tbl tbody td.td-cb  { text-align: center; padding: 4px; }
+.badge-miss { background: rgba(239,68,68,0.12); color: #ef4444; border: 1px solid rgba(239,68,68,0.25); padding: 2px 9px; border-radius: 20px; font-size: 10px; font-weight: bold; margin-left: 6px; }
+.no-data-cell { padding: 48px 20px; text-align: center; color: #4b6a9e; }
+.no-data-cell .ei { font-size: 28px; margin-bottom: 8px; opacity: 0.4; }
+.no-data-cell .et { font-size: 13px; font-weight: bold; color: #64748b; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div style="width:200px;"></div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span style="font-size:20px;">📋</span>
+    <span style="font-size:15px;font-weight:bold;color:#f9fafb;letter-spacing:0.02em;">Transmittal Matrix | Aconex</span>
+  </div>
+  <div style="width:200px;display:flex;justify-content:flex-end;">
+    <img src="sarah-white-logo.png" alt="" style="height:38px;object-fit:contain;" onerror="this.style.display='none'">
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div style="display:flex;min-height:calc(100vh - 64px);">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <div class="section-header" style="padding-top:4px;">Organisation Config</div>
+    <button class="btn-config" id="btnConfigure" onclick="openConfigModal()" disabled>
+      <span>⚙️</span><span>Configure Organisations</span>
+    </button>
+
+    <hr class="s-divider">
+    <div class="section-header">Data Sources</div>
+
+    <!-- Transmittal Report -->
+    <div class="folder-box" id="fileBox">
+      <input type="file" accept=".xlsx,.xls" onchange="handleTransmittalFile(event)" id="txInput">
+      <svg class="xls-icon" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="28" height="28" rx="4" fill="#1D6F42"/>
+        <rect x="3" y="3" width="22" height="22" rx="2" fill="#217346"/>
+        <path d="M7 8h14M7 12h14M7 16h14M7 20h14" stroke="rgba(255,255,255,0.2)" stroke-width="0.5"/>
+        <path d="M14 3v22" stroke="rgba(255,255,255,0.2)" stroke-width="0.5"/>
+        <text x="5" y="19" font-family="Arial" font-weight="bold" font-size="11" fill="white">XLS</text>
+      </svg>
+      <div class="folder-text">
+        <div class="folder-label">Load Transmittal Report</div>
+        <div class="folder-sub" id="fileSub">Transmittal_History.xlsx</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:7px;padding:2px 8px;">
+      <div class="status-dot" id="statusDot"></div>
+      <span style="font-size:10px;color:#64748b;" id="statusLbl">Not loaded</span>
+    </div>
+
+    <!-- Document Register -->
+    <div class="folder-box" id="regBox" style="margin-top:4px;">
+      <input type="file" accept=".xlsx,.xls" onchange="handleRegisterFile(event)" id="regInput">
+      <svg class="xls-icon" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="28" height="28" rx="4" fill="#1D6F42"/>
+        <rect x="3" y="3" width="22" height="22" rx="2" fill="#217346"/>
+        <path d="M7 8h14M7 12h14M7 16h14M7 20h14" stroke="rgba(255,255,255,0.2)" stroke-width="0.5"/>
+        <path d="M14 3v22" stroke="rgba(255,255,255,0.2)" stroke-width="0.5"/>
+        <text x="5" y="19" font-family="Arial" font-weight="bold" font-size="11" fill="white">XLS</text>
+      </svg>
+      <div class="folder-text">
+        <div class="folder-label">Load Document Register</div>
+        <div class="folder-sub" id="regSub">Document_Register.xlsx</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:7px;padding:2px 8px;">
+      <div class="status-dot" id="regDot"></div>
+      <span style="font-size:10px;color:#64748b;" id="regLbl">Not loaded</span>
+    </div>
+
+    <hr class="s-divider">
+    <div class="section-header">View</div>
+    <div class="view-toggle">
+      <button class="vt-btn active" id="vt-c2s" onclick="setView('c2s')">📄 Consultant Docs → Subcontractors</button>
+      <button class="vt-btn"        id="vt-wf"  onclick="setView('wf')">🔀 Workflow Status</button>
+    </div>
+
+    <hr class="s-divider">
+    <div class="section-header">Summary</div>
+    <div class="kpi-sm k-blue" style="margin-bottom:5px;">
+      <div class="kpi-sm-label">Registered Docs</div>
+      <div class="kpi-sm-val" id="kpi-registered">—</div>
+      <div class="kpi-sm-sub">max of column A</div>
+    </div>
+    <div class="kpi-sm k-green" style="margin-bottom:5px;">
+      <div class="kpi-sm-label">Organisations</div>
+      <div class="kpi-sm-val" id="kpi-orgs">—</div>
+      <div class="kpi-sm-sub">in current view</div>
+    </div>
+    <div class="kpi-sm k-purple" style="margin-bottom:5px;">
+      <div class="kpi-sm-label">Disciplines</div>
+      <div class="kpi-sm-val" id="kpi-discs">—</div>
+      <div class="kpi-sm-sub">with docs in view</div>
+    </div>
+    <div class="kpi-sm k-red">
+      <div class="kpi-sm-label">Total Missing</div>
+      <div class="kpi-sm-val" id="kpi-missing">—</div>
+      <div class="kpi-sm-sub">vs Sarah Constructions</div>
+    </div>
+
+    <hr class="s-divider">
+    <div class="section-header">Legend</div>
+    <div class="legend-row"><div class="legend-box" style="background:rgba(22,197,94,0.15);color:#22c55e;">✓</div><span>All docs transmitted</span></div>
+    <div class="legend-row"><div class="legend-box" style="background:rgba(239,68,68,0.15);color:#ef4444;font-size:8px;">N✗</div><span>N missing — click for detail</span></div>
+    <div class="legend-row"><div class="legend-box" style="background:rgba(59,130,246,0.12);color:#3b82f6;font-size:9px;">#</div><span>Reference (Sarah)</span></div>
+    <div class="legend-row"><div class="legend-box" style="background:rgba(30,58,110,0.25);color:#2d3f5c;">—</div><span>No docs for discipline</span></div>
+
+    <hr class="s-divider">
+    <div class="section-header">Search Org</div>
+    <input class="search-input" id="orgSearch" type="text" placeholder="Filter organisations…" oninput="filterOrgs(this.value)">
+    <button class="btn-sm" style="width:100%;margin-top:4px;background:#0f1f3d;border:1px solid #1e3a6e;" onclick="clearSearch()">✕ Clear</button>
+
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <div class="idle-screen" id="idleScreen">
+      <div class="idle-icon">📋</div>
+      <div class="idle-title">Transmittal Matrix</div>
+      <div class="idle-sub" style="text-align:left;max-width:520px;">
+        <div style="display:flex;flex-direction:column;gap:12px;">
+
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <span style="background:#3b82f6;color:#fff;font-weight:bold;font-size:11px;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">1</span>
+            <div><strong style="color:#cbd5e1;">Load Transmittal History</strong><br>
+            <span style="color:#64748b;">Click the first upload box in the sidebar. This is your Aconex Transmittal History export (.xlsx).</span></div>
+          </div>
+
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <span style="background:#3b82f6;color:#fff;font-weight:bold;font-size:11px;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">2</span>
+            <div><strong style="color:#cbd5e1;">Set the Document Type Filter</strong><br>
+            <span style="color:#64748b;">Use the <strong style="color:#60a5fa;">Filter Column</strong> and <strong style="color:#60a5fa;">Filter Value</strong> dropdowns that appear on load. By default this is pre-set to <em>Consultant Document</em> — change if needed.</span></div>
+          </div>
+
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <span style="background:#3b82f6;color:#fff;font-weight:bold;font-size:11px;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">3</span>
+            <div><strong style="color:#cbd5e1;">Configure Organisations</strong><br>
+            <span style="color:#64748b;">Click <strong style="color:#60a5fa;">⚙ Configure Organisations</strong> in the sidebar. Mark your Consultants, then hit <strong style="color:#fbbf24;">⚡ Non-Consultants → Subcontractor</strong> to assign the rest in one click. Apply when done.</span></div>
+          </div>
+
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <span style="background:#22c55e;color:#fff;font-weight:bold;font-size:11px;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">4</span>
+            <div><strong style="color:#cbd5e1;">Load Document Register <span style="color:#22c55e;font-size:10px;">(Optional)</span></strong><br>
+            <span style="color:#64748b;">Enables the <strong style="color:#a855f7;">🔀 Workflow Status</strong> view and populates Tracking IDs on missing documents for Aconex Super Search.</span></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Matrix view -->
+    <div id="matrixContent" style="display:none;flex-direction:column;gap:16px;">
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-title" id="matrixPanelTitle">📊 Document Transmittal Matrix</div>
+            <div style="font-size:10px;color:#4b6a9e;margin-top:2px;" id="matrixSubtitle"></div>
+          </div>
+          <div class="panel-actions">
+            <span id="sarahWarn" style="display:none;font-size:10px;color:#f59e0b;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);padding:3px 10px;border-radius:6px;">⚠ "Sarah Constructions" not found</span>
+            <span id="uncatWarn" style="display:none;font-size:10px;color:#a855f7;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.2);padding:3px 10px;border-radius:6px;">⚠ Some orgs uncategorised</span>
+            <button class="btn-sm" onclick="exportCSV()">⬇ CSV</button>
+          </div>
+        </div>
+        <div class="wf-filter-bar" id="txFilterBar">
+          <div class="wf-filter-group">
+            <div class="wf-filter-label">📂 Filter Column</div>
+            <select class="wf-select" id="txColSelect" style="min-width:210px;" onchange="onTxColChange()">
+              <option value="">— load transmittal first —</option>
+            </select>
+          </div>
+          <div class="wf-filter-group">
+            <div class="wf-filter-label">🔖 Filter Value</div>
+            <select class="wf-select" id="txValSelect" style="min-width:210px;" onchange="onTxValChange()">
+              <option value="">— select column first —</option>
+            </select>
+          </div>
+          <div style="align-self:flex-end;padding-bottom:2px;">
+            <div class="wf-filter-label">&nbsp;</div>
+            <div id="txFilterStatus" style="font-size:11px;color:#64748b;padding:6px 0;">No filter active</div>
+          </div>
+        </div>
+        <div class="matrix-wrap">
+          <table class="matrix-table" id="matrixTable"></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Workflow Status view -->
+    <div id="wfContent" style="display:none;flex-direction:column;gap:16px;">
+      <div id="wfKpiRow" class="wf-kpi-grid"></div>
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-title">🔀 Workflow Status — Document Register</div>
+            <div style="font-size:10px;color:#4b6a9e;margin-top:2px;" id="wfSubtitle">Showing: Sample · Shop Drawing · Technical Data Sheets</div>
+          </div>
+          <div class="panel-actions">
+            <span id="wfRegWarn" style="display:none;font-size:10px;color:#f59e0b;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);padding:3px 10px;border-radius:6px;">⚠ Load Document Register first</span>
+            <button class="btn-sm" onclick="exportWfCSV()">⬇ CSV</button>
+          </div>
+        </div>
+        <div class="wf-filter-bar">
+          <div class="wf-filter-group">
+            <div class="wf-filter-label">Discipline</div>
+            <select class="wf-select" id="wfDiscFilter" onchange="applyWfFilters()"><option value="">All Disciplines</option></select>
+          </div>
+          <div class="wf-filter-group">
+            <div class="wf-filter-label">Created By</div>
+            <select class="wf-select" id="wfCreatorFilter" onchange="applyWfFilters()"><option value="">All Creators</option></select>
+          </div>
+          <div class="wf-filter-group">
+            <div class="wf-filter-label">Review Status</div>
+            <select class="wf-select" id="wfStatusFilter" onchange="applyWfFilters()"><option value="">All Statuses</option></select>
+          </div>
+          <div class="wf-filter-group" style="margin-left:auto;">
+            <div class="wf-filter-label">&nbsp;</div>
+            <button class="btn-sm" style="background:#0f1f3d;border:1px solid #1e3a6e;" onclick="clearWfFilters()">✕ Clear Filters</button>
+          </div>
+        </div>
+        <div class="wf-table-wrap">
+          <table class="wf-table"><thead id="wfThead"></thead><tbody id="wfTbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ══ CONFIGURE ORG MODAL ══ -->
+<div class="modal-overlay" id="configModal">
+  <div class="config-box">
+    <div class="config-head">
+      <div>
+        <div style="font-size:14px;font-weight:bold;color:#f9fafb;">⚙️ Configure Organisations</div>
+        <div style="font-size:11px;color:#64748b;margin-top:3px;">Assign categories · Hide orgs from matrix · <span style="color:#60a5fa;">Default consultants</span> pre-set</div>
+      </div>
+      <button class="modal-close" onclick="closeConfigModal()">✕</button>
+    </div>
+    <div class="config-toolbar">
+      <input class="config-search" id="configSearch" type="text" placeholder="Search organisations…" oninput="renderConfigTable(this.value)">
+      <button class="btn-bulk bc" onclick="bulkAssign('Consultant')">✦ All → Consultant</button>
+      <button class="btn-bulk bs" onclick="bulkAssign('Subcontractor')">✦ All → Subcontractor</button>
+      <button class="btn-bulk bs" onclick="markNonConsultants()" style="border-color:rgba(245,158,11,0.5);color:#fbbf24;" title="Sets every org not already marked as Consultant to Subcontractor">⚡ Non-Consultants → Subcontractor</button>
+      <button class="btn-bulk"    onclick="toggleShowHidden()" id="btnShowHidden">👁 Show Hidden</button>
+    </div>
+    <div class="config-body">
+      <table class="config-table">
+        <thead><tr><th style="width:40px;">#</th><th>Organisation Name</th><th style="width:150px;">Category</th><th style="width:88px;text-align:center;">Visibility</th></tr></thead>
+        <tbody id="configTbody"></tbody>
+      </table>
+    </div>
+    <div class="config-foot">
+      <div class="config-summary" id="configSummary"></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-sm" style="background:transparent;border:1px solid #1e3a6e;color:#94a3b8;" onclick="closeConfigModal()">Cancel</button>
+        <button class="btn-sm" style="background:#3b82f6;" onclick="applyConfig()">✓ Apply &amp; Rebuild Matrix</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DETAIL MODAL (missing docs + WF list) ══ -->
+<div class="modal-overlay" id="detailModal">
+  <div class="detail-box">
+    <div class="detail-head">
+      <div>
+        <div style="font-size:14px;font-weight:bold;color:#f9fafb;" id="detailTitleMain">Documents</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px;" id="detailTitleSub"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;" id="detailHeadActions">
+        <button class="btn-sm" onclick="exportModalCSV()">⬇ Export CSV</button>
+        <button class="modal-close" onclick="closeDetailModal()">✕</button>
+      </div>
+    </div>
+    <div class="detail-body">
+      <table class="modal-tbl">
+        <thead id="detailThead"></thead>
+        <tbody id="detailTbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Aconex search bar — only shown for missing-docs (tx) modal -->
+    <div class="aconex-bar" id="aconexBar" style="display:none;">
+      <div class="aconex-bar-top">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div>
+            <div class="aconex-label">🔍 Aconex Super Search — Selected Documents</div>
+            <div class="aconex-count" id="aconexCount">0 documents selected</div>
+          </div>
+          <button class="btn-sel-all" onclick="selectAllRows()">☑ Select All</button>
+          <button class="btn-sel-all" onclick="deselectAllRows()">☐ Deselect All</button>
+        </div>
+        <button class="btn-aconex" id="btnFindAconex" onclick="copyAconexSearch()" disabled>
+          🔎 Find Documents in Aconex
+        </button>
+      </div>
+      <textarea class="aconex-textarea" id="aconexQuery" readonly placeholder="Select rows above to build your Aconex Super Search query…"></textarea>
+    </div>
+
+    <div class="detail-foot">
+      <div style="font-size:11px;color:#64748b;" id="detailFootInfo"></div>
+      <div style="font-size:10px;color:#374151;" id="detailFootNote"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════════════════
+const HEADER_ROW  = 8;   // Transmittal: row 9 (0-idx 8)
+const DATA_START  = 9;   // Transmittal: row 10
+const REG_HEADER_ROW = 10; // Register: row 11 (0-idx 10)
+const REG_DATA_START = 11; // Register: row 12
+
+const COL_COUNT   = 0;   // A
+const COL_DOCTYPE = 7;   // H
+const COL_DISC    = 10;  // K
+const COL_ORG     = 18;  // S
+
+const SARAH_KEY = 'sarah constructions';
+const DEFAULT_CONSULTANTS = [
+  'Aurecon','Brown Falconer','SWANBURY PENGLASE ARCHITECTS',
+  'Kellogg Brown & Root Pty Ltd','DIT Building Projects'
+];
+const WF_TYPES = ['sample','shop drawing','technical data sheets'];
+
+const RS_COLOURS = {
+  'approved':               { bg:'rgba(22,197,94,0.12)',  color:'#22c55e', border:'rgba(22,197,94,0.25)' },
+  'approved with comments': { bg:'rgba(34,197,94,0.08)',  color:'#4ade80', border:'rgba(34,197,94,0.2)' },
+  'rejected':               { bg:'rgba(239,68,68,0.12)',  color:'#ef4444', border:'rgba(239,68,68,0.25)' },
+  'revise and resubmit':    { bg:'rgba(245,158,11,0.12)', color:'#f59e0b', border:'rgba(245,158,11,0.25)' },
+  'review in progress':     { bg:'rgba(59,130,246,0.12)', color:'#60a5fa', border:'rgba(59,130,246,0.25)' },
+  'pending review':         { bg:'rgba(168,85,247,0.12)', color:'#a855f7', border:'rgba(168,85,247,0.25)' },
+  'not required':           { bg:'rgba(100,116,139,0.1)', color:'#94a3b8', border:'rgba(100,116,139,0.2)' },
+};
+
+// ══════════════════════════════════════════════
+//  STATE — Transmittal
+// ══════════════════════════════════════════════
+let txHeaders = [], allRows = [], disciplines = [], orgs = [];
+let sarahName = '', docKeyCol = 1, totalRegistered = 0;
+let orgCategory = {}, orgHidden = {};
+// Configurable doc-type filter (column header name + exact value to match)
+let txFilterCol = '', txFilterVal = '';
+let currentView = 'c2s';
+let sarahDocs = { c2s: {} }, sarahRows = { c2s: {} }, orgDocs = {};
+let visibleOrgs = [];
+
+// ── STATE — Register ──
+let regAllRows = [], regFiltered = [], regHeaders = [], regColMap = {};
+// trackingMap[docNo] = trackingId  (built from Hyperlink column)
+let trackingMap = {};
+
+// ── Modal state ──
+let modalRows = [], modalHeaders = [], modalType = 'tx';
+let modalOrg = '', modalDisc = '';
+let selectedRowKeys = new Set(); // set of docNo for selected rows in tx modal
+
+// Config modal
+let configShowHidden = false;
+
+// ══════════════════════════════════════════════
+//  TRACKING ID EXTRACTION
+//  URL example: https://au.aconex.com/Aconex/faces/...?docId=ABC123&projectId=...
+//  Extract text between "?" and first "&" → "docId=ABC123"
+//  Replace "=" with ":"                   → "docId:ABC123"
+//
+//  Also handles bare IDs like: ?1234567890  (no key, just value)
+// ══════════════════════════════════════════════
+function extractTrackingId(url) {
+  if (!url || !url.trim()) return '';
+  try {
+    url = url.trim();
+    const qIdx = url.indexOf('?');
+    if (qIdx < 0) {
+      // No "?" — check if the whole thing looks like an ID (digits only)
+      if (/^\d+$/.test(url)) return url;
+      return '';
+    }
+    const queryPart = url.slice(qIdx + 1);  // everything after "?"
+    const ampIdx    = queryPart.indexOf('&');
+    // Take only up to first "&" (first query param)
+    const segment   = ampIdx >= 0 ? queryPart.slice(0, ampIdx) : queryPart;
+    if (!segment) return '';
+    // Replace "=" with ":" per the spec
+    return segment.replace(/=/g, ':').trim();
+  } catch (e) { return ''; }
+}
+
+// ══════════════════════════════════════════════
+//  FILE INPUT HANDLERS
+// ══════════════════════════════════════════════
+function handleTransmittalFile(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => loadTransmittal(ev.target.result, file.name);
+  reader.readAsArrayBuffer(file);
+}
+
+function handleRegisterFile(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => loadRegister(ev.target.result, file.name);
+  reader.readAsArrayBuffer(file);
+}
+
+// Scans the transmittal worksheet for the first row containing "Document No".
+// That row becomes the header; the row below is where data begins.
+function detectTxHeaderRow(raw) {
+  for (let r = 0; r < Math.min(raw.length, 60); r++) {
+    if ((raw[r] || []).some(v => String(v || '').trim() === 'Document No')) {
+      console.log('[Transmittal] Header row detected at Excel row', r + 1, '(0-indexed:', r, ')');
+      return r;
+    }
+  }
+  throw new Error('Could not detect transmittal header row: no cell with exact value "Document No" found in first 60 rows.');
+}
+
+function loadTransmittal(buffer, fname) {
+  try {
+    const wb  = XLSX.read(buffer, { type:'array', cellDates:true });
+    const ws  = wb.Sheets[wb.SheetNames[0]];
+    const raw = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+
+    const txHeaderRow = detectTxHeaderRow(raw);
+    const txDataStart = txHeaderRow + 1;
+
+    txHeaders = (raw[txHeaderRow] || []).map(c => String(c||'').trim());
+    const keyNames = ['document number','doc no','document no.','document no','doc number','number'];
+    docKeyCol = txHeaders.findIndex(h => keyNames.some(n => h.toLowerCase().includes(n)));
+    if (docKeyCol < 0) docKeyCol = 1;
+
+    totalRegistered = 0;
+    for (let i = txDataStart; i < raw.length; i++) {
+      const v = parseInt(raw[i][COL_COUNT], 10);
+      if (!isNaN(v) && v > totalRegistered) totalRegistered = v;
+    }
+
+    allRows = [];
+    for (let i = txDataStart; i < raw.length; i++) {
+      const row = raw[i];
+      const disc  = String(row[COL_DISC]    || '').trim();
+      const org   = String(row[COL_ORG]     || '').trim();
+      const dtype = String(row[COL_DOCTYPE] || '').trim();
+      const key   = String(row[docKeyCol]   || '').trim();
+      if (!disc || !org || !key) continue;
+      const named = {};
+      txHeaders.forEach((h, idx) => { if (h) named[h] = String(row[idx]||'').trim(); });
+      allRows.push({ _key:key, _disc:disc, _org:org, _dtype:dtype, _named:named });
+    }
+
+    disciplines = [...new Set(allRows.map(r=>r._disc))].filter(Boolean).sort();
+    orgs        = [...new Set(allRows.map(r=>r._org))].filter(Boolean).sort();
+    sarahName   = orgs.find(o => o.toLowerCase().includes(SARAH_KEY)) || '';
+    if (sarahName) orgs = [sarahName, ...orgs.filter(o=>o!==sarahName)];
+
+    orgs.forEach(org => {
+      if (org === sarahName) return;
+      if (!(org in orgCategory)) {
+        orgCategory[org] = DEFAULT_CONSULTANTS.some(d=>d.trim().toLowerCase()===org.trim().toLowerCase()) ? 'Consultant' : 'Subcontractor';
+      }
+      if (!(org in orgHidden)) orgHidden[org] = false;
+    });
+
+    document.getElementById('fileSub').textContent = fname;
+    document.getElementById('fileSub').className   = 'folder-sub ok';
+    document.getElementById('fileBox').classList.add('loaded');
+    document.getElementById('statusDot').className  = 'status-dot ok';
+    document.getElementById('statusLbl').textContent = fname + ' (' + allRows.length + ' rows)';
+    document.getElementById('btnConfigure').disabled = false;
+    if (!sarahName) document.getElementById('sarahWarn').style.display = 'inline-flex';
+
+    populateTxFilterBar();   // sets txFilterCol + txFilterVal before first rebuild
+    rebuildDocSets();
+    visibleOrgs = getViewOrgs();
+    document.getElementById('idleScreen').style.display    = 'none';
+    document.getElementById('matrixContent').style.display = 'flex';
+    renderMatrix();
+  } catch(err) { console.error(err); alert('Error loading transmittal: '+err.message); }
+}
+
+// ══════════════════════════════════════════════
+//  DOCUMENT REGISTER LOAD
+// ══════════════════════════════════════════════
+
+// Scans for the first row containing an exact "Document No" cell value.
+// That row is the header row; the row below is where data begins.
+// Throws a clear error if not found so the user knows immediately.
+function detectHeaderRow(raw) {
+  for (let r = 0; r < Math.min(raw.length, 60); r++) {
+    const rowData = raw[r] || [];
+    if (rowData.some(v => String(v || '').trim() === 'Document No')) {
+      console.log('[Register] Header row detected at Excel row', r + 1, '(0-indexed:', r, ')');
+      return r;
+    }
+  }
+  throw new Error('Could not detect header row: no cell with exact value "Document No" found in first 60 rows.');
+}
+
+function loadRegister(buffer, fname) {
+  try {
+    const wb  = XLSX.read(buffer, { type:'array', cellDates:true });
+    const ws  = wb.Sheets[wb.SheetNames[0]];
+    // Use defval:'', raw:false so dates come as strings but we keep cellDates
+    const raw = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:false });
+
+    // ── Auto-detect header row by searching for "Document No" cell ──
+    const headerRow = detectHeaderRow(raw);
+    const dataStart = headerRow + 1;
+    regHeaders = (raw[headerRow] || []).map(c => String(c||'').trim());
+
+    // Flexible column finder: exact then partial
+    function findCol(names) {
+      let idx = regHeaders.findIndex(h => names.some(n => h.toLowerCase().trim() === n.toLowerCase()));
+      if (idx < 0) idx = regHeaders.findIndex(h => names.some(n => h.toLowerCase().includes(n.toLowerCase())));
+      return idx;
+    }
+
+    regColMap = {
+      type:         findCol(['type','doc type','document type']),
+      reviewSource: findCol(['review source','reviewsource','workflow source','workflow']),
+      reviewStatus: findCol(['review status','reviewstatus','workflow status','status']),
+      discipline:   findCol(['discipline']),
+      createdBy:    findCol(['created by','createdby','author']),
+      hyperlink:    findCol(['hyperlink','hyper link','link','url']),
+      docNo:        findCol(['document number','document no','doc no','doc no.','doc number','number']),
+    };
+
+    // ── Extract hyperlink URLs from worksheet cells (.l.Target) ──
+    // Aconex registers embed the document URL as a hyperlink on the document number
+    // cell (or another cell), NOT necessarily in a dedicated "Hyperlink" column.
+    // Strategy: for each data row, check (1) the explicit hyperlink column if found,
+    // (2) the document number column, then (3) scan all cells for any .l.Target.
+    const wsRange = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    const hlColIdx = regColMap.hyperlink;
+    const dnColIdx = regColMap.docNo;
+
+    // Map: rowIndex (0-based within raw array) → actual URL
+    const urlByRow = {};
+    for (let r = dataStart; r <= wsRange.e.r; r++) {
+      let foundUrl = '';
+
+      // Priority 1: dedicated hyperlink column (if header was matched)
+      if (!foundUrl && hlColIdx >= 0) {
+        const cell = ws[XLSX.utils.encode_cell({ r, c: hlColIdx })];
+        if (cell) {
+          if (cell.l && cell.l.Target) foundUrl = cell.l.Target;
+          else if (cell.v && String(cell.v).toLowerCase().startsWith('http')) foundUrl = String(cell.v);
+        }
+      }
+
+      // Priority 2: document number column embedded hyperlink (most common in Aconex)
+      if (!foundUrl && dnColIdx >= 0) {
+        const cell = ws[XLSX.utils.encode_cell({ r, c: dnColIdx })];
+        if (cell && cell.l && cell.l.Target) foundUrl = cell.l.Target;
+      }
+
+      // Priority 3: scan every cell in the row for any hyperlink target
+      if (!foundUrl) {
+        for (let c = wsRange.s.c; c <= wsRange.e.c && !foundUrl; c++) {
+          const cell = ws[XLSX.utils.encode_cell({ r, c })];
+          if (cell && cell.l && cell.l.Target) foundUrl = cell.l.Target;
+        }
+      }
+
+      if (foundUrl) urlByRow[r] = foundUrl;
+    }
+
+    // ── Build trackingMap: docNo (uppercase) → trackingId ──
+    // Scan ALL data rows (not just WF_TYPES) so the map is complete
+    trackingMap = {};
+    for (let i = dataStart; i < raw.length; i++) {
+      const row   = raw[i];
+      const docNo = dnColIdx >= 0 ? String(row[dnColIdx] || '').trim() : '';
+      if (!docNo) continue;
+
+      // Get URL — prefer direct ws cell extraction over sheet_to_json value
+      const url = urlByRow[i] || (hlColIdx >= 0 ? String(row[hlColIdx] || '').trim() : '');
+      const tid = extractTrackingId(url);
+      if (tid) trackingMap[docNo.toUpperCase()] = tid;
+    }
+
+    // ── Parse WF_TYPES rows for display ──
+    regAllRows = [];
+    const typeColIdx = regColMap.type;
+
+    for (let i = dataStart; i < raw.length; i++) {
+      const row = raw[i];
+
+      // Check type — if column not found, include all rows
+      let typeV = '';
+      if (typeColIdx >= 0) {
+        typeV = String(row[typeColIdx] || '').trim();
+        if (!typeV) continue; // blank row
+        // Exact case-insensitive match only — prevents e.g. "Drawing" matching "Shop Drawing"
+        const typeLow = typeV.toLowerCase();
+        const matched = WF_TYPES.some(t => typeLow === t);
+        if (!matched) continue;
+      }
+
+      const named = {};
+      regHeaders.forEach((h, idx) => {
+        if (!h) return;
+        named[h] = String(row[idx] || '').trim();
+      });
+
+      regAllRows.push(named);
+    }
+
+    document.getElementById('regSub').textContent = fname;
+    document.getElementById('regSub').className   = 'folder-sub ok';
+    document.getElementById('regBox').classList.add('loaded');
+    document.getElementById('regDot').className   = 'status-dot ok';
+    document.getElementById('regLbl').textContent =
+      fname + ' (' + regAllRows.length + ' rows · ' + Object.keys(trackingMap).length + ' tracking IDs)';
+    document.getElementById('wfRegWarn').style.display = 'none';
+
+    populateWfFilters();
+    regFiltered = [...regAllRows];
+    if (currentView === 'wf') renderWfView();
+
+  } catch(err) {
+    console.error('Register load error:', err);
+    alert('Error loading register: ' + err.message);
+    document.getElementById('regDot').className = 'status-dot err';
+  }
+}
+
+// ══════════════════════════════════════════════
+//  TRANSMITTAL DOC-TYPE FILTER
+// ══════════════════════════════════════════════
+function populateTxFilterBar() {
+  const colSel = document.getElementById('txColSelect');
+  const valSel = document.getElementById('txValSelect');
+  if (!colSel || !valSel) return;
+
+  // Fill column dropdown from all transmittal headers
+  colSel.innerHTML = '<option value="">— no filter (show all) —</option>' +
+    txHeaders.filter(h => h).map(h => `<option value="${escAttr(h)}">${escHtml(h)}</option>`).join('');
+
+  // Pre-select the column at COL_DOCTYPE index (Col H by default)
+  const defaultCol = txHeaders[COL_DOCTYPE] || '';
+  if (defaultCol) { colSel.value = defaultCol; txFilterCol = defaultCol; }
+
+  // Populate value dropdown for the pre-selected column
+  valSel.innerHTML = '<option value="">— show all —</option>';
+  if (txFilterCol) {
+    const vals = [...new Set(allRows.map(r => r._named[txFilterCol] || '').filter(Boolean))].sort();
+    valSel.innerHTML += vals.map(v => `<option value="${escAttr(v)}">${escHtml(v)}</option>`).join('');
+    // Pre-select first value that contains "consultant"
+    const pre = vals.find(v => v.toLowerCase().includes('consultant'));
+    if (pre) { valSel.value = pre; txFilterVal = pre; }
+  }
+  updateTxFilterStatus();
+}
+
+function onTxColChange() {
+  const colSel = document.getElementById('txColSelect');
+  const valSel = document.getElementById('txValSelect');
+  txFilterCol = colSel ? colSel.value : '';
+  txFilterVal = '';
+  valSel.innerHTML = '<option value="">— show all —</option>';
+  if (txFilterCol) {
+    const vals = [...new Set(allRows.map(r => r._named[txFilterCol] || '').filter(Boolean))].sort();
+    valSel.innerHTML += vals.map(v => `<option value="${escAttr(v)}">${escHtml(v)}</option>`).join('');
+  }
+  updateTxFilterStatus();
+  rebuildDocSets(); visibleOrgs = getViewOrgs(); renderMatrix();
+}
+
+function onTxValChange() {
+  const valSel = document.getElementById('txValSelect');
+  txFilterVal = valSel ? valSel.value : '';
+  updateTxFilterStatus();
+  rebuildDocSets(); visibleOrgs = getViewOrgs(); renderMatrix();
+}
+
+function updateTxFilterStatus() {
+  const el = document.getElementById('txFilterStatus');
+  if (!el) return;
+  if (txFilterCol && txFilterVal) {
+    el.innerHTML = `Active: <span style="color:#60a5fa;font-weight:bold;">${escHtml(txFilterCol)}</span> = <span style="color:#22c55e;font-weight:bold;">"${escHtml(txFilterVal)}"</span>`;
+  } else if (txFilterCol && !txFilterVal) {
+    el.innerHTML = `Column: <span style="color:#60a5fa;font-weight:bold;">${escHtml(txFilterCol)}</span> — <span style="color:#f59e0b;">showing all values</span>`;
+  } else {
+    el.innerHTML = '<span style="color:#374151;">No filter — showing all rows</span>';
+  }
+}
+
+// ══════════════════════════════════════════════
+//  DOC SETS
+// ══════════════════════════════════════════════
+function rebuildDocSets() {
+  sarahDocs = { c2s:{} };
+  sarahRows = { c2s:{} };
+  orgDocs   = {};
+  allRows.forEach(r => {
+    // Apply configurable column/value filter; if no filter set, include all rows
+    if (txFilterCol && txFilterVal) {
+      if ((r._named[txFilterCol] || '') !== txFilterVal) return;
+    }
+    if (r._org === sarahName) {
+      if (!sarahDocs.c2s[r._disc]) sarahDocs.c2s[r._disc] = new Set();
+      if (!sarahRows.c2s[r._disc]) sarahRows.c2s[r._disc] = [];
+      if (!sarahDocs.c2s[r._disc].has(r._key)) {
+        sarahDocs.c2s[r._disc].add(r._key);
+        sarahRows.c2s[r._disc].push(r);
+      }
+    } else {
+      if (!orgDocs[r._org])               orgDocs[r._org] = { c2s:{} };
+      if (!orgDocs[r._org].c2s[r._disc])  orgDocs[r._org].c2s[r._disc] = new Set();
+      orgDocs[r._org].c2s[r._disc].add(r._key);
+    }
+  });
+}
+
+// ══════════════════════════════════════════════
+//  VIEW
+// ══════════════════════════════════════════════
+function setView(v) {
+  currentView = v;
+  document.getElementById('vt-c2s').className = 'vt-btn' + (v==='c2s'?' active':'');
+  document.getElementById('vt-wf').className  = 'vt-btn' + (v==='wf' ?' active-wf':'');
+  document.getElementById('matrixContent').style.display = v==='c2s' ? 'flex' : 'none';
+  document.getElementById('wfContent').style.display     = v==='wf'  ? 'flex' : 'none';
+  if (v==='c2s' && allRows.length) { visibleOrgs=getViewOrgs(); renderMatrix(); }
+  if (v==='wf') {
+    if (!regAllRows.length) { document.getElementById('wfRegWarn').style.display='inline-flex'; }
+    else { applyWfFilters(); renderWfView(); }
+  }
+}
+
+function getViewOrgs() {
+  return orgs.filter(o => o===sarahName || (!orgHidden[o] && orgCategory[o]==='Subcontractor'));
+}
+function getActiveDisciplines() {
+  return disciplines.filter(d => sarahDocs.c2s[d] && sarahDocs.c2s[d].size>0);
+}
+function getMissing(orgName, disc) {
+  const sarah = sarahDocs.c2s[disc] || new Set();
+  const org   = (orgDocs[orgName] && orgDocs[orgName].c2s && orgDocs[orgName].c2s[disc]) || new Set();
+  return [...sarah].filter(k => !org.has(k));
+}
+
+// ══════════════════════════════════════════════
+//  RENDER MATRIX
+// ══════════════════════════════════════════════
+function renderMatrix() {
+  if (!allRows.length) return;
+  const table  = document.getElementById('matrixTable');
+  const discs  = getActiveDisciplines();
+  const toShow = visibleOrgs;
+
+  document.getElementById('uncatWarn').style.display =
+    orgs.filter(o=>o!==sarahName&&!orgHidden[o]&&!orgCategory[o]).length ? 'inline-flex' : 'none';
+
+  let totalMissing = 0;
+  toShow.forEach(org => {
+    if (org===sarahName) return;
+    discs.forEach(d => { totalMissing += getMissing(org,d).length; });
+  });
+  setText('kpi-registered', totalRegistered||'—');
+  setText('kpi-orgs',       toShow.filter(o=>o!==sarahName).length);
+  setText('kpi-discs',      discs.length);
+  setText('kpi-missing',    totalMissing);
+
+  document.getElementById('matrixPanelTitle').textContent = '📄 Consultant Documents → Subcontractor Organisations';
+  document.getElementById('matrixSubtitle').textContent =
+    `Showing Subcontractor orgs  ·  Reference: ${sarahName||'—'}  ·  ${discs.length} active discipline(s)`;
+
+  if (!discs.length) {
+    table.innerHTML = `<tbody><tr><td colspan="3"><div class="no-data-cell"><div class="ei">📋</div><div class="et">No "Consultant Document" entries found in Column H</div></div></td></tr></tbody>`;
+    return;
+  }
+
+  let thHTML = `<th class="col-org">Organisation</th><th class="col-cat">Category</th>`;
+  discs.forEach(d => { thHTML += `<th title="${escHtml(d)}">${escHtml(abbr(d))}</th>`; });
+  thHTML += `<th class="col-total">Total Missing</th>`;
+
+  let tbHTML = '';
+  toShow.forEach(org => {
+    const isSarah = org===sarahName;
+    let rowTotal = 0;
+    let tr = `<tr class="${isSarah?'row-sarah':''}">`;
+    tr += `<td class="td-org">${isSarah?'★ ':''}${escHtml(org)}</td>`;
+    tr += `<td class="td-cat">${isSarah?'<span class="cat-pill cat-principal">Principal</span>':catPill(orgCategory[org]||'')}</td>`;
+    discs.forEach(disc => {
+      if (isSarah) {
+        const cnt = sarahDocs.c2s[disc]?sarahDocs.c2s[disc].size:0;
+        tr += cnt>0 ? `<td><span style="color:#3b82f6;font-weight:bold;">${fmt(cnt)}</span></td>` : `<td class="cell-na">—</td>`;
+      } else {
+        const missing  = getMissing(org,disc);
+        const sarahCnt = sarahDocs.c2s[disc]?sarahDocs.c2s[disc].size:0;
+        if (sarahCnt===0) { tr+=`<td class="cell-na">—</td>`; }
+        else if (missing.length===0) { tr+=`<td><span class="cell-tick">✓</span></td>`; }
+        else {
+          rowTotal += missing.length;
+          tr+=`<td><button class="cell-miss-btn" onclick="showMissingDetail('${escAttr(org)}','${escAttr(disc)}')">${fmt(missing.length)} ✗</button></td>`;
+        }
+      }
+    });
+    if (isSarah) {
+      const t = Object.values(sarahDocs.c2s).reduce((s,x)=>s+x.size,0);
+      tr+=`<td class="td-total"><span style="color:#3b82f6;font-weight:bold;">${fmt(t)}</span></td>`;
+    } else {
+      tr+=rowTotal===0?`<td class="td-total"><span class="cell-tick">✓</span></td>`:`<td class="td-total" style="color:#ef4444;">${fmt(rowTotal)}</td>`;
+    }
+    tr+=`</tr>`;
+    tbHTML+=tr;
+  });
+
+  if (sarahName) {
+    let refRow=`<tr class="row-totals"><td class="td-org">Reference Count (Sarah Constructions)</td><td class="td-cat"></td>`;
+    let grand=0;
+    discs.forEach(d=>{const cnt=sarahDocs.c2s[d]?sarahDocs.c2s[d].size:0;grand+=cnt;refRow+=`<td>${cnt>0?fmt(cnt):'—'}</td>`;});
+    refRow+=`<td class="td-total">${fmt(grand)}</td></tr>`;
+    tbHTML+=refRow;
+  }
+  if (!tbHTML) {
+    tbHTML=`<tr><td colspan="${discs.length+3}"><div class="no-data-cell"><div class="ei">🔍</div><div class="et">No Subcontractor organisations in view</div><div style="font-size:11px;color:#374151;margin-top:4px;">Open Configure Organisations to assign categories</div></div></td></tr>`;
+  }
+  table.innerHTML=`<thead><tr>${thHTML}</tr></thead><tbody>${tbHTML}</tbody>`;
+}
+
+// ══════════════════════════════════════════════
+//  MISSING DOCS DETAIL — with Tracking ID + multi-select
+// ══════════════════════════════════════════════
+function showMissingDetail(orgName, disc) {
+  const missingKeys = getMissing(orgName, disc);
+  if (!missingKeys.length) return;
+  modalOrg = orgName; modalDisc = disc; modalType = 'tx';
+  selectedRowKeys.clear();
+
+  const rows = (sarahRows.c2s[disc] || []).filter(r => missingKeys.includes(r._key));
+  // Attach tracking ID to each row
+  modalRows = rows.map(r => {
+    const trackId = trackingMap[r._key.toUpperCase()] || '';
+    return { ...r._named, '_docKey': r._key, '_trackingId': trackId };
+  });
+  modalHeaders = txHeaders.filter(h => h.trim());
+
+  document.getElementById('detailTitleMain').innerHTML =
+    `<span style="color:#ef4444;">${fmt(missingKeys.length)}</span> Missing Document${missingKeys.length!==1?'s':''} <span class="badge-miss">✗</span>`;
+  document.getElementById('detailTitleSub').textContent =
+    `${orgName}  ·  Discipline: ${disc}  ·  Consultant Docs → Subcontractors`;
+  document.getElementById('detailFootInfo').innerHTML =
+    `<strong style="color:#f9fafb;">${rows.length}</strong> missing doc${rows.length!==1?'s':''}`;
+  document.getElementById('detailFootNote').innerHTML =
+    `Docs sent to <strong style="color:#22c55e;">Sarah Constructions</strong> but not this organisation`;
+
+  // Show Aconex bar
+  const hasTracking = rows.some(r => trackingMap[r._key.toUpperCase()]);
+  document.getElementById('aconexBar').style.display = 'flex';
+  updateAconexBar();
+
+  // Build thead — checkbox + Tracking ID + all tx columns
+  document.getElementById('detailThead').innerHTML =
+    `<tr>
+       <th class="th-cb"><input type="checkbox" class="row-cb" id="masterCb" onchange="toggleAllCb(this)" title="Select all"></th>
+       <th style="min-width:160px;color:${hasTracking?'#60a5fa':'#374151'};">Tracking ID</th>
+       ${modalHeaders.map(h=>`<th>${escHtml(h)}</th>`).join('')}
+     </tr>`;
+
+  document.getElementById('detailTbody').innerHTML = modalRows.map((r, i) => {
+    const key    = r['_docKey']     || '';
+    const tid    = r['_trackingId'] || '';
+    const tidCell = tid
+      ? `<td class="tracking-id-cell" title="${escHtml(tid)}">${escHtml(tid)}</td>`
+      : `<td class="tracking-id-cell missing">—</td>`;
+    return `<tr id="detailRow_${i}" onclick="toggleRowSelect(${i},'${escAttr(key)}')">
+      <td class="td-cb"><input type="checkbox" class="row-cb" id="rowCb_${i}" onchange="onRowCbChange(event,${i},'${escAttr(key)}')" onclick="event.stopPropagation()"></td>
+      ${tidCell}
+      ${modalHeaders.map(h=>`<td class="${(r[h]||'').length>20?'td-str':''}">${escHtml(r[h]||'—')}</td>`).join('')}
+    </tr>`;
+  }).join('');
+
+  document.getElementById('detailModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+// ── Row selection ──
+function toggleRowSelect(i, key) {
+  const cb = document.getElementById('rowCb_' + i);
+  if (!cb) return;
+  cb.checked = !cb.checked;
+  onRowCbChange({ target: cb }, i, key);
+}
+
+function onRowCbChange(e, i, key) {
+  e.stopPropagation && e.stopPropagation();
+  const row = document.getElementById('detailRow_' + i);
+  if (e.target.checked) { selectedRowKeys.add(key); if(row) row.classList.add('row-selected'); }
+  else                  { selectedRowKeys.delete(key); if(row) row.classList.remove('row-selected'); }
+  updateAconexBar();
+}
+
+function selectAllRows() {
+  modalRows.forEach((r,i) => {
+    const key = r['_docKey'] || '';
+    const cb  = document.getElementById('rowCb_'+i);
+    if (cb) cb.checked = true;
+    const row = document.getElementById('detailRow_'+i);
+    if (row) row.classList.add('row-selected');
+    if (key) selectedRowKeys.add(key);
+  });
+  const mc = document.getElementById('masterCb');
+  if (mc) mc.checked = true;
+  updateAconexBar();
+}
+
+function deselectAllRows() {
+  selectedRowKeys.clear();
+  modalRows.forEach((_,i) => {
+    const cb = document.getElementById('rowCb_'+i);
+    if (cb) cb.checked = false;
+    const row = document.getElementById('detailRow_'+i);
+    if (row) row.classList.remove('row-selected');
+  });
+  const mc = document.getElementById('masterCb');
+  if (mc) mc.checked = false;
+  updateAconexBar();
+}
+
+function toggleAllCb(masterCb) {
+  if (masterCb.checked) selectAllRows(); else deselectAllRows();
+}
+
+function updateAconexBar() {
+  // Build query string first
+  const parts = [];
+  selectedRowKeys.forEach(key => {
+    const tid = trackingMap[key.toUpperCase()] || '';
+    if (tid) parts.push(tid);
+  });
+
+  const count   = selectedRowKeys.size;
+  const withTid = parts.length;
+  const countEl = document.getElementById('aconexCount');
+  const qEl     = document.getElementById('aconexQuery');
+  const btn     = document.getElementById('btnFindAconex');
+  if (countEl) countEl.textContent = count
+    ? `${count} selected${withTid < count ? ' · ' + withTid + ' with Tracking ID' : ''}`
+    : '0 documents selected';
+
+  const query = parts.join(' OR ');
+  if (qEl) qEl.value = query;
+  if (btn) btn.disabled = parts.length === 0;
+}
+
+function copyAconexSearch() {
+  const qEl = document.getElementById('aconexQuery');
+  if (!qEl || !qEl.value) return;
+  navigator.clipboard.writeText(qEl.value).then(() => {
+    showToast('✓ Search criteria copied — please paste this in your Aconex Super Search');
+  }).catch(() => {
+    // Fallback for older browsers
+    qEl.select();
+    document.execCommand('copy');
+    showToast('✓ Search criteria copied — please paste this in your Aconex Super Search');
+  });
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3800);
+}
+
+// ══════════════════════════════════════════════
+//  WORKFLOW VIEW
+// ══════════════════════════════════════════════
+function populateWfFilters() {
+  function fill(selId, colName) {
+    const sel = document.getElementById(selId); if (!sel || !colName) return;
+    const vals = [...new Set(regAllRows.map(r=>r[colName]||'').filter(Boolean))].sort();
+    sel.innerHTML = `<option value="">All</option>` + vals.map(v=>`<option value="${escAttr(v)}">${escHtml(v)}</option>`).join('');
+  }
+  fill('wfDiscFilter',    regHeaders[regColMap.discipline]);
+  fill('wfCreatorFilter', regHeaders[regColMap.createdBy]);
+  fill('wfStatusFilter',  regHeaders[regColMap.reviewStatus]);
+}
+
+function applyWfFilters() {
+  const dv = document.getElementById('wfDiscFilter').value;
+  const cv = document.getElementById('wfCreatorFilter').value;
+  const sv = document.getElementById('wfStatusFilter').value;
+  const dH = regHeaders[regColMap.discipline]   || '';
+  const cH = regHeaders[regColMap.createdBy]    || '';
+  const sH = regHeaders[regColMap.reviewStatus] || '';
+  regFiltered = regAllRows.filter(r => {
+    if (dv && r[dH]!==dv) return false;
+    if (cv && r[cH]!==cv) return false;
+    if (sv && r[sH]!==sv) return false;
+    return true;
+  });
+  renderWfView();
+}
+
+function clearWfFilters() {
+  ['wfDiscFilter','wfCreatorFilter','wfStatusFilter'].forEach(id => { document.getElementById(id).value=''; });
+  regFiltered = [...regAllRows];
+  renderWfView();
+}
+
+function renderWfView() { renderWfKpis(); renderWfTable(); }
+
+function renderWfKpis() {
+  const rsH = regHeaders[regColMap.reviewSource] || '';
+  const rvH = regHeaders[regColMap.reviewStatus] || '';
+  const notInWf = regFiltered.filter(r=>!(r[rsH]||'').trim());
+  const inWf    = regFiltered.filter(r=>(r[rsH]||'').trim());
+  const counts  = {};
+  regFiltered.forEach(r => { const s=(r[rvH]||'No Status').trim()||'No Status'; counts[s]=(counts[s]||0)+1; });
+  const PAL = ['k-amber','k-blue','k-purple','k-teal','k-pink','k-slate','k-green','k-red'];
+  let html = `
+    <div class="wf-kpi-card k-blue">
+      <div class="wf-kpi-label">Total Documents</div>
+      <div class="wf-kpi-val">${fmt(regFiltered.length)}</div>
+      <div class="wf-kpi-sub">Sample · Shop Drawing · TDS</div>
+    </div>
+    <div class="wf-kpi-card k-red clickable" onclick="showNotInWfDetail()" title="Click to see documents not in a workflow">
+      <div class="wf-kpi-label">Not In Workflow</div>
+      <div class="wf-kpi-val">${fmt(notInWf.length)}</div>
+      <div class="wf-kpi-sub">blank Review Source</div>
+      <div class="wf-click-hint">🔍 Click to view list</div>
+    </div>
+    <div class="wf-kpi-card k-green">
+      <div class="wf-kpi-label">In Workflow</div>
+      <div class="wf-kpi-val">${fmt(inWf.length)}</div>
+      <div class="wf-kpi-sub">Review Source assigned</div>
+    </div>`;
+  let ci=0;
+  Object.entries(counts).sort((a,b)=>b[1]-a[1]).forEach(([s,c]) => {
+    html+=`<div class="wf-kpi-card ${PAL[ci++%PAL.length]} clickable" onclick="showStatusDetail('${escAttr(s)}')" title="Click to view">
+      <div class="wf-kpi-label">Review Status</div>
+      <div class="wf-kpi-val">${fmt(c)}</div>
+      <div class="wf-kpi-sub">${makeRsPill(s)}</div>
+      <div class="wf-click-hint">🔍 Click to view list</div>
+    </div>`;
+  });
+  document.getElementById('wfKpiRow').innerHTML = html;
+  document.getElementById('wfSubtitle').textContent =
+    `Sample · Shop Drawing · Technical Data Sheets  ·  ${regFiltered.length} of ${regAllRows.length} rows`;
+}
+
+function renderWfTable() {
+  const rsH = regHeaders[regColMap.reviewSource] || '';
+  const rvH = regHeaders[regColMap.reviewStatus] || '';
+  const thead = document.getElementById('wfThead');
+  const tbody  = document.getElementById('wfTbody');
+  const hdrs   = regHeaders.filter(h=>h.trim()&&h!=='_trackingId');
+  if (!regFiltered.length) {
+    thead.innerHTML='';
+    tbody.innerHTML=`<tr><td colspan="5"><div class="no-data-cell"><div class="ei">📁</div><div class="et">No rows match current filters</div></div></td></tr>`;
+    return;
+  }
+  thead.innerHTML = '<tr>' + hdrs.map(h=>`<th>${escHtml(h)}</th>`).join('') + '</tr>';
+  tbody.innerHTML  = regFiltered.map(r =>
+    '<tr>' + hdrs.map(h => {
+      const v = r[h]||'';
+      if (h===rvH && v) return `<td>${makeRsPill(v)}</td>`;
+      if (h===rsH) return v ? `<td class="td-mono">${escHtml(v)}</td>` : `<td style="color:#ef4444;font-style:italic;">— not set —</td>`;
+      return `<td class="${v.length>24?'td-long':''}">${escHtml(v)}</td>`;
+    }).join('') + '</tr>'
+  ).join('');
+}
+
+function makeRsPill(s) {
+  const c = RS_COLOURS[(s||'').toLowerCase().trim()] || {bg:'rgba(100,116,139,0.1)',color:'#94a3b8',border:'rgba(100,116,139,0.2)'};
+  return `<span class="rs-pill" style="background:${c.bg};color:${c.color};border:1px solid ${c.border};">${escHtml(s)}</span>`;
+}
+
+// ── WF detail popups ──
+function showNotInWfDetail() {
+  const rsH  = regHeaders[regColMap.reviewSource] || '';
+  const rows = regFiltered.filter(r=>!(r[rsH]||'').trim());
+  openWfModal(
+    `<span style="color:#ef4444;">${fmt(rows.length)}</span> Documents Not In Workflow <span class="badge-miss">No Review Source</span>`,
+    'These documents have no Review Source assigned — not put into a workflow',
+    rows
+  );
+}
+function showStatusDetail(status) {
+  const rvH  = regHeaders[regColMap.reviewStatus] || '';
+  const rows = regFiltered.filter(r=>(r[rvH]||'').trim()===status);
+  openWfModal(
+    `<span>${fmt(rows.length)}</span> Documents — Review Status: ${makeRsPill(status)}`,
+    'Filtered from current Document Register view',
+    rows
+  );
+}
+
+function openWfModal(titleHTML, subtitle, rows) {
+  modalType    = 'wf';
+  modalRows    = rows;
+  const hdrs   = regHeaders.filter(h=>h.trim()&&h!=='_trackingId');
+  modalHeaders = hdrs;
+  const rsH    = regHeaders[regColMap.reviewSource] || '';
+  const rvH    = regHeaders[regColMap.reviewStatus] || '';
+
+  document.getElementById('detailTitleMain').innerHTML   = titleHTML;
+  document.getElementById('detailTitleSub').textContent  = subtitle;
+  document.getElementById('detailFootInfo').innerHTML    = `<strong style="color:#f9fafb;">${rows.length}</strong> document${rows.length!==1?'s':''}`;
+  document.getElementById('detailFootNote').textContent  = '';
+  document.getElementById('aconexBar').style.display     = 'none';
+
+  document.getElementById('detailThead').innerHTML = '<tr>'+hdrs.map(h=>`<th>${escHtml(h)}</th>`).join('')+'</tr>';
+  document.getElementById('detailTbody').innerHTML = rows.map(r =>
+    '<tr>' + hdrs.map(h=>{
+      const v=r[h]||'—';
+      if (h===rvH&&v!=='—') return `<td>${makeRsPill(v)}</td>`;
+      if (h===rsH) return (r[h]||'').trim() ? `<td class="td-str">${escHtml(r[h])}</td>` : `<td style="color:#ef4444;font-style:italic;">— not set —</td>`;
+      return `<td class="${v.length>20?'td-str':''}">${escHtml(v)}</td>`;
+    }).join('') + '</tr>'
+  ).join('');
+
+  document.getElementById('detailModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDetailModal() {
+  document.getElementById('detailModal').classList.remove('open');
+  document.body.style.overflow = '';
+  selectedRowKeys.clear();
+}
+
+// ══════════════════════════════════════════════
+//  CONFIGURE ORG MODAL
+// ══════════════════════════════════════════════
+function openConfigModal() {
+  configShowHidden = false;
+  document.getElementById('btnShowHidden').textContent = '👁 Show Hidden';
+  document.getElementById('configSearch').value = '';
+  renderConfigTable('');
+  document.getElementById('configModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeConfigModal() {
+  document.getElementById('configModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function toggleShowHidden() {
+  configShowHidden = !configShowHidden;
+  document.getElementById('btnShowHidden').textContent = configShowHidden ? '🚫 Hide Hidden' : '👁 Show Hidden';
+  renderConfigTable(document.getElementById('configSearch').value);
+}
+function renderConfigTable(q) {
+  q = (q||'').toLowerCase().trim();
+  const ns = orgs.filter(o=>o!==sarahName);
+  let filtered = q ? ns.filter(o=>o.toLowerCase().includes(q)) : ns;
+  if (!configShowHidden) filtered = filtered.filter(o=>!orgHidden[o]);
+  else {
+    const vis=filtered.filter(o=>!orgHidden[o]), hid=filtered.filter(o=>orgHidden[o]);
+    filtered=[...vis,...hid];
+  }
+  document.getElementById('configTbody').innerHTML = filtered.map((org,i) => {
+    const cat    = orgCategory[org] || '';
+    const hidden = orgHidden[org]   || false;
+    const cls    = cat==='Consultant'?'sel-consultant':'sel-subcontractor';
+    const isDef  = DEFAULT_CONSULTANTS.some(d=>d.trim().toLowerCase()===org.trim().toLowerCase());
+    const hBadge = hidden ? ' <span style="font-size:9px;background:rgba(239,68,68,0.1);color:#ef4444;padding:1px 5px;border-radius:3px;">hidden</span>' : '';
+    return `<tr class="${hidden?'row-hidden-org':''}">
+      <td style="color:#4b6a9e;font-size:11px;">${i+1}</td>
+      <td>${escHtml(org)}${isDef?' <span style="font-size:9px;color:#4b6a9e;background:rgba(59,130,246,0.1);padding:1px 5px;border-radius:3px;">default</span>':''}${hBadge}</td>
+      <td><select class="config-select ${cls}" data-org="${escAttr(org)}" onchange="onCatChange(this)">
+        <option value="Consultant" ${cat==='Consultant'?'selected':''}>Consultant</option>
+        <option value="Subcontractor" ${cat==='Subcontractor'?'selected':''}>Subcontractor</option>
+      </select></td>
+      <td style="text-align:center;">${hidden
+        ? `<button class="btn-show" onclick="toggleHide('${escAttr(org)}',false)">👁 Show</button>`
+        : `<button class="btn-hide" onclick="toggleHide('${escAttr(org)}',true)">🙈 Hide</button>`
+      }</td>
+    </tr>`;
+  }).join('');
+  updateConfigSummary();
+}
+function onCatChange(sel) {
+  const org = sel.getAttribute('data-org').replace(/\\'/g,"'");
+  orgCategory[org] = sel.value;
+  sel.className = 'config-select ' + (sel.value==='Consultant'?'sel-consultant':'sel-subcontractor');
+  updateConfigSummary();
+}
+function toggleHide(org, hide) {
+  org = org.replace(/\\'/g,"'");
+  orgHidden[org] = hide;
+  renderConfigTable(document.getElementById('configSearch').value);
+}
+function updateConfigSummary() {
+  const ns = orgs.filter(o=>o!==sarahName);
+  document.getElementById('configSummary').innerHTML =
+    `<b>${ns.filter(o=>orgCategory[o]==='Consultant').length}</b> Consultant &nbsp;·&nbsp; <b>${ns.filter(o=>orgCategory[o]==='Subcontractor').length}</b> Subcontractor &nbsp;·&nbsp; <b style="color:#ef4444;">${ns.filter(o=>orgHidden[o]).length}</b> Hidden`;
+}
+function bulkAssign(cat) {
+  const q  = (document.getElementById('configSearch').value||'').toLowerCase().trim();
+  const ns = orgs.filter(o=>o!==sarahName&&!orgHidden[o]);
+  (q?ns.filter(o=>o.toLowerCase().includes(q)):ns).forEach(o=>{ orgCategory[o]=cat; });
+  renderConfigTable(document.getElementById('configSearch').value);
+}
+function markNonConsultants() {
+  // Only touches orgs not already assigned as Consultant — leaves your Consultants intact
+  orgs.filter(o=>o!==sarahName&&!orgHidden[o]&&orgCategory[o]!=='Consultant')
+      .forEach(o=>{ orgCategory[o]='Subcontractor'; });
+  renderConfigTable(document.getElementById('configSearch').value);
+}
+function applyConfig() {
+  closeConfigModal();
+  rebuildDocSets();
+  visibleOrgs = getViewOrgs();
+  document.getElementById('orgSearch').value='';
+  renderMatrix();
+}
+
+// ══════════════════════════════════════════════
+//  ORG SEARCH
+// ══════════════════════════════════════════════
+function filterOrgs(q) {
+  q=(q||'').toLowerCase().trim();
+  const base=getViewOrgs();
+  visibleOrgs=q?base.filter(o=>o===sarahName||o.toLowerCase().includes(q)):base;
+  if(currentView==='c2s') renderMatrix();
+}
+function clearSearch() { document.getElementById('orgSearch').value=''; filterOrgs(''); }
+
+// ══════════════════════════════════════════════
+//  EXPORT
+// ══════════════════════════════════════════════
+function exportCSV() {
+  const discs=getActiveDisciplines(); if(!discs.length) return;
+  const lines=[['Organisation','Category',...discs,'Total Missing'].map(c=>`"${c}"`).join(',')];
+  visibleOrgs.forEach(org=>{
+    const isSarah=org===sarahName;
+    const cat=isSarah?'Principal':(orgCategory[org]||'');
+    let total=0;
+    const cells=[`"${org.replace(/"/g,'""')}"`,`"${cat}"`];
+    discs.forEach(d=>{
+      if(isSarah){cells.push(sarahDocs.c2s[d]?sarahDocs.c2s[d].size:'');}
+      else{const m=getMissing(org,d).length,s=sarahDocs.c2s[d]?sarahDocs.c2s[d].size:0;total+=m;cells.push(s===0?'':m===0?'OK':m);}
+    });
+    cells.push(isSarah?'':(total===0?'OK':total));
+    lines.push(cells.join(','));
+  });
+  dlBlob(lines.join('\n'),'transmittal_matrix_'+today()+'.csv','text/csv');
+}
+function exportWfCSV() {
+  if(!regFiltered.length) return;
+  const hdrs=regHeaders.filter(h=>h.trim()&&h!=='_trackingId');
+  const lines=[hdrs.map(h=>`"${h.replace(/"/g,'""')}"`).join(',')];
+  regFiltered.forEach(r=>{lines.push(hdrs.map(h=>`"${(r[h]||'').replace(/"/g,'""')}"`).join(','));});
+  dlBlob(lines.join('\n'),'workflow_status_'+today()+'.csv','text/csv');
+}
+function exportModalCSV() {
+  if(!modalRows.length) return;
+  const hdrs = modalType==='tx'
+    ? ['Tracking ID',...modalHeaders]
+    : modalHeaders;
+  const lines=[hdrs.map(h=>`"${h.replace(/"/g,'""')}"`).join(',')];
+  modalRows.forEach(r=>{
+    const row = modalType==='tx' ? r : r;
+    if(modalType==='tx'){
+      const tid=(r['_trackingId']||'').replace(/"/g,'""');
+      lines.push([`"${tid}"`, ...modalHeaders.map(h=>`"${(r[h]||'').replace(/"/g,'""')}"`)]  .join(','));
+    } else {
+      lines.push(modalHeaders.map(h=>`"${(r[h]||'').replace(/"/g,'""')}"`).join(','));
+    }
+  });
+  dlBlob(lines.join('\n'),'detail_export_'+today()+'.csv','text/csv');
+}
+
+// ══════════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════════
+function catPill(cat) {
+  if(cat==='Consultant')    return `<span class="cat-pill cat-consultant">Consultant</span>`;
+  if(cat==='Subcontractor') return `<span class="cat-pill cat-subcontractor">Subcontractor</span>`;
+  return `<span class="cat-pill" style="background:rgba(100,116,139,0.1);color:#64748b;border:1px solid rgba(100,116,139,0.2);">Unset</span>`;
+}
+function fmtDate(d) {
+  if(!(d instanceof Date)||isNaN(d)) return String(d);
+  const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return String(d.getDate()).padStart(2,'0')+' '+M[d.getMonth()]+' '+d.getFullYear();
+}
+function abbr(s)    { return s&&s.length>18?s.slice(0,16)+'…':(s||'—'); }
+function fmt(n)     { return Number(n).toLocaleString(); }
+function today()    { return new Date().toISOString().slice(0,10); }
+function setText(id,v){ const el=document.getElementById(id); if(el) el.textContent=v; }
+function setElem(id,txt,cls){ const el=document.getElementById(id); if(!el)return; el.textContent=txt; if(cls) el.className=cls; }
+function setDot(id,state){ const el=document.getElementById(id); if(el) el.className='status-dot'+(state?' '+state:''); }
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escAttr(s) { return String(s||'').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+function dlBlob(c,n,t){ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:t}));a.download=n;a.click();URL.revokeObjectURL(a.href); }
+
+// Modal close
+document.getElementById('configModal').addEventListener('click', e=>{ if(e.target===document.getElementById('configModal'))closeConfigModal(); });
+document.getElementById('detailModal').addEventListener('click', e=>{ if(e.target===document.getElementById('detailModal'))closeDetailModal(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){closeDetailModal();closeConfigModal();} });
+</script>
+</body>
+</html>

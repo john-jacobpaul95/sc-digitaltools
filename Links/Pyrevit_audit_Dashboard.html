@@ -110,6 +110,10 @@ tbody td.str { font-family: Arial, sans-serif; font-size: 12px; }
 .page-placeholder .ph-big { font-size: 52px; opacity: 0.15; }
 .page-placeholder h2 { font-size: 20px; color: #64748b; font-weight: bold; }
 .page-placeholder p { font-size: 13px; color: #374151; max-width: 340px; line-height: 1.6; }
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { color: #93c5fd; }
+th.sortable.asc::after  { content: ' ▲'; font-size: 9px; color: #3b82f6; }
+th.sortable.desc::after { content: ' ▼'; font-size: 9px; color: #3b82f6; }
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #1e3a6e; border-radius: 3px; }
@@ -245,7 +249,6 @@ tbody td.str { font-family: Arial, sans-serif; font-size: 12px; }
               <div class="panel-title">⊞ Grid Audit Results</div>
               <div class="panel-actions">
                 <button class="btn-sm" onclick="exportCSV('gridsTable','grids_audit')">⬇ CSV</button>
-                <button class="btn-sm" onclick="openPdfModal()" style="background:#1e3a6e;">⬇ PDF</button>
               </div>
             </div>
             <div class="tbl-wrap">
@@ -278,7 +281,7 @@ tbody td.str { font-family: Arial, sans-serif; font-size: 12px; }
         <div class="panel">
           <div class="panel-head"><div class="panel-title">≡ Level Audit</div><div class="panel-actions"><button class="btn-sm" onclick="exportCSV('levelsTable','levels_audit')">⬇ CSV</button></div></div>
           <div class="tbl-wrap"><table id="levelsTable">
-            <thead><tr><th>Status</th><th>Source Model</th><th>Level Name</th><th>Export Elev (mm)</th><th>Baseline Elev (mm)</th><th>Elevation Base</th><th>Building Storey</th></tr></thead>
+            <thead><tr><th>Status</th><th>Source Model</th><th>Level Name</th><th class="sortable" id="thLevelElev" onclick="sortLevels()">Export Elev (mm)</th><th>Baseline Elev (mm)</th><th>Elevation Base</th><th>Building Storey</th></tr></thead>
             <tbody id="levelsBody"><tr><td colspan="7"><div class="empty"><div class="empty-icon">≡</div><div class="empty-title">No level data loaded</div></div></td></tr></tbody>
           </table></div>
         </div>
@@ -380,6 +383,10 @@ let baselineData    = null;
 let exportData      = null;
 let baselineRaw     = {};
 let baselineGrids   = new Set();
+let baselineModelGrids  = new Map(); // normKey(modelName) → { grids, colGVal, sheetName }
+let baselineModelGridsG = new Map(); // normKey(colGVal) → { grids, colGVal, sheetName }
+let modelToPrecinctMap  = new Map(); // normKey(modelName) → sheetName
+let levelsSortDir = 0; // 0=none, 1=asc, -1=desc
 let auditResults    = { grids:[], levels:[], coords:[], filename:[] };
 let filteredResults = { grids:[], levels:[], coords:[], filename:[] };
 let activeModule    = 'grids';
@@ -397,7 +404,7 @@ function switchPage(name, btn) {
   if(p2d) { if(name==='audit2d') init2dPage(); p2d.style.display = name==='audit2d' ? 'flex' : 'none'; }
 }
 const MODULE_STATUSES = {
-  grids:       [['','All'],['PASS','Pass'],['FAIL','Fail'],['MISSING','Missing'],['ADDED','Added']],
+  grids:       [['','All'],['PASS','Pass'],['FAIL','Fail'],['MISSING','Missing'],['ADDED','Added'],['FILE NOT FOUND','File Not Found']],
   levels:      [['','All'],['PASS','Pass'],['FAIL','Fail'],['REVIEW','Review'],['UNTICK BUILDING STOREY','Untick Bldg Storey'],['NA','NA']],
   coordinates: [['','All'],['PASS','Pass'],['FAIL','Fail'],['NA','NA']],
   filename:    [['','All'],['PASS','Pass'],['REVIEW','Review'],['FAIL','Fail'],['NOT FOUND','Not Found']],
@@ -460,13 +467,37 @@ function applyExportData(data, fname) {
 function applyBaselineData(data, fname, raw) {
   baselineData = data;
   baselineRaw  = raw || {};
-  // Parse expected grid labels from column D (index 3) of each sheet
+  // Build per-model grid map from baseline:
+  //   baselineGrids = flat Set of all grid keys (used when no baseline per-model match)
+  //   baselineModelGrids = Map: normKey(modelName) → { grids: Set, colGVal: string, sheetName }
+  //   col A (index 0) = model filename, col C (index 2) = grid label, col G (index 6) = fallback string
   baselineGrids = new Set();
-  Object.values(data).forEach(rows => {
-    rows.forEach(row => {
-      const label = Object.values(row)[3];
-      if (label && String(label).trim())
-        baselineGrids.add(normKey(String(label)));
+  baselineModelGrids = new Map(); // normKey(modelName) → Set of normKey(gridLabel)
+  baselineModelGridsG = new Map(); // normKey(colGVal) → { grids: Set, colGVal }
+  Object.entries(raw || {}).forEach(([sheetName, rawRows]) => {
+    // Collect all grid labels for this sheet (col C = index 2, skip header row 0)
+    const sheetGrids = new Set();
+    rawRows.forEach((row, ri) => {
+      if (ri === 0) return;
+      const gridLabel = String(row[2]||'').trim();
+      if (gridLabel) { sheetGrids.add(normKey(gridLabel)); baselineGrids.add(normKey(gridLabel)); }
+    });
+    // Map each model name (col A) to this sheet's grids; also store col G fallback
+    rawRows.forEach((row, ri) => {
+      if (ri === 0) return;
+      const modelName = String(row[0]||'').trim();
+      const colGVal   = String(row[6]||'').trim();
+      if (modelName) baselineModelGrids.set(normKey(modelName), { grids: sheetGrids, colGVal, sheetName });
+      if (colGVal)   baselineModelGridsG.set(normKey(colGVal),  { grids: sheetGrids, colGVal, sheetName });
+    });
+  });
+  // Build modelName → precinct (sheet name) lookup for levels/coords filtering
+  modelToPrecinctMap = new Map();
+  Object.entries(raw || {}).forEach(([sheetName, rawRows]) => {
+    rawRows.forEach((row, ri) => {
+      if (ri === 0) return;
+      const modelName = String(row[0]||'').trim();
+      if (modelName) modelToPrecinctMap.set(normKey(modelName), sheetName);
     });
   });
   setDot('dot-baseline','ok');
@@ -568,19 +599,92 @@ function auditGrids() {
   const sheet  = exportData['Grids'] || exportData['grids'] || [];
   const tol    = parseFloat(document.getElementById('tolerance').value)    || 1.0;
   const angTol = parseFloat(document.getElementById('angleTolerance').value) || 0.01;
-  const useBase = baselineGrids.size > 0;
-  return sheet.filter(r => r['SourceModel'] && r['ModelScope'] !== 'Host').map(r => {
-    const st  = (r['Status']||'').toUpperCase();
-    const key = normKey(r['GridName']);
-    // When baseline loaded: grids NOT in baseline column D are flagged ADDED
-    if (useBase && !baselineGrids.has(key) && st !== 'MISSING') return {...r, _status:'ADDED'};
-    if (st==='ADDED')   return {...r, _status:'ADDED'};
-    if (st==='MISSING') return {...r, _status:'MISSING'};
+  const useBase = baselineModelGrids.size > 0;
+
+  // Helper: resolve which baseline grid set applies to a given SourceModel name.
+  // Returns { grids: Set, suffix: '' | ' (FILE NAME ERROR)' } or null if not found.
+  function resolveBaseline(modelName) {
+    if (!useBase) return null;
+    const mk = normKey(modelName);
+    // Step 1: exact match on col A
+    if (baselineModelGrids.has(mk)) return { ...baselineModelGrids.get(mk), suffix: '' };
+    // Step 2: col G substring — model name must CONTAIN the col G value (case-insensitive)
+    const modelLower = modelName.toLowerCase();
+    for (const [gKey, entry] of baselineModelGridsG) {
+      const gVal = entry.colGVal.toLowerCase();
+      if (gVal && modelLower.includes(gVal)) return { ...entry, suffix: ' (FILE NAME ERROR)' };
+    }
+    return null; // FILE NOT FOUND
+  }
+
+  // When baseline loaded, also synthesise MISSING rows for grids in baseline but not in export
+  const results = [];
+  // seenKeys built from ALL rows (including Host) so that grids present in the host-scope
+  // rows are not falsely flagged as MISSING during synthesis.
+  // seenKeys keyed by grid name ONLY (not model-specific).
+  // A grid present in ANY row (host or link) is considered "seen" so it is never
+  // falsely synthesised as MISSING. Host grids and link grids share the same label space.
+  const seenKeys = new Set();
+  sheet.filter(r => r['GridName']).forEach(r => {
+    seenKeys.add(normKey(r['GridName']));
+  });
+
+  sheet.filter(r => r['SourceModel'] && r['ModelScope'] !== 'Host').forEach(r => {
+    const st      = (r['Status']||'').toUpperCase();
+    const gridKey = normKey(r['GridName']);
+    const model   = r['SourceModel'] || '';
+
+    if (!useBase) {
+      // No baseline — original logic vs host
+      if (st==='ADDED')   { results.push({...r, _status:'ADDED'});   return; }
+      if (st==='MISSING') { results.push({...r, _status:'MISSING'}); return; }
+      const dpos = parseFloat(r['Delta_Pos_mm']);
+      const dang = parseFloat(r['Delta_Angle_deg']);
+      if (isNaN(dpos)) { results.push({...r, _status:'MISSING'}); return; }
+      results.push({...r, _status: (dpos>tol || (!isNaN(dang) && dang>angTol)) ? 'FAIL' : 'PASS'});
+      return;
+    }
+
+    // When baseline is loaded, ignore any row the export marked as MISSING.
+    // Those are host-has-it / link-doesn't-have-it rows — irrelevant when we
+    // have a BEP baseline to audit against.
+    if (st === 'MISSING') return;
+
+    const base = resolveBaseline(model);
+    if (!base) { results.push({...r, _precinct: '', _status:'FILE NOT FOUND'}); return; }
+
+    const sfx = base.suffix;
+    const precinct = base.sheetName || '';
+    // Grid not in baseline col C → ADDED
+    if (!base.grids.has(gridKey)) {
+      results.push({...r, _precinct: precinct, _status:'ADDED' + sfx}); return;
+    }
     const dpos = parseFloat(r['Delta_Pos_mm']);
     const dang = parseFloat(r['Delta_Angle_deg']);
-    if (isNaN(dpos)) return {...r, _status:'MISSING'};
-    return {...r, _status: (dpos>tol || (!isNaN(dang) && dang>angTol)) ? 'FAIL' : 'PASS'};
+    if (isNaN(dpos)) { results.push({...r, _precinct: precinct, _status:'MISSING' + sfx}); return; }
+    const core = (dpos>tol || (!isNaN(dang) && dang>angTol)) ? 'FAIL' : 'PASS';
+    results.push({...r, _precinct: precinct, _status: core + sfx});
   });
+
+  // Add MISSING rows: grids in baseline for a model but absent from export
+  if (useBase) {
+    // For each model in export, find its baseline and add missing grids
+    const exportModels = [...new Set(sheet.filter(r=>r['SourceModel']&&r['ModelScope']!=='Host').map(r=>r['SourceModel']))];
+    exportModels.forEach(model => {
+      const base = resolveBaseline(model);
+      if (!base) return;
+      const sfx = base.suffix;
+      base.grids.forEach(expectedGridKey => {
+        if (!seenKeys.has(expectedGridKey)) {
+          results.push({ SourceModel: model, GridName: expectedGridKey, ModelScope:'Link',
+            Delta_East_mm:'', Delta_North_mm:'', Delta_Pos_mm:'', Delta_Angle_deg:'',
+            _precinct: base.sheetName || '', _status:'MISSING' + sfx });
+        }
+      });
+    });
+  }
+
+  return results;
 }
 
 function parseElevMm(val) {
@@ -592,35 +696,36 @@ function parseElevMm(val) {
 }
 function auditLevels() {
   const sheet = (exportData['Levels']||exportData['levels']||[]).filter(r=>r['SourceModel']);
-  if (!baselineData) return sheet.map(r => ({ ...r, _status:'NA' }));
+  if (!baselineData) return sheet.map(r => ({ ...r, _precinct:'', _status:'NA' }));
   const baseMap = new Map();
   Object.values(baselineData).forEach(rows => {
     rows.forEach(row => {
       const vals = Object.values(row);
-      const nameE = String(vals[4]||'').trim();
-      const elevF = vals[5];
+      const nameE = String(vals[3]||'').trim();
+      const elevF = vals[4];
       if (nameE) baseMap.set(nameE.toLowerCase(), { name:nameE, elev:elevF });
     });
   });
   return sheet.map(r => {
+    const precinct  = modelToPrecinctMap.get(normKey(r['SourceModel']||'')) || '';
     const levelName = String(r['Level Name']||'').trim();
     const baseEntry = baseMap.get(levelName.toLowerCase());
     if (!baseEntry) {
       const storey = String(r['Param_BuildingStorey']||'').trim().toLowerCase();
-      if (storey==='yes') return { ...r, _status:'UNTICK BUILDING STOREY' };
-      return { ...r, _status:'NA' };
+      if (storey==='yes') return { ...r, _precinct: precinct, _status:'UNTICK BUILDING STOREY' };
+      return { ...r, _precinct: precinct, _status:'NA' };
     }
     const exportElev = parseElevMm(r['Param_Elevation']);
     const baseElev   = parseElevMm(baseEntry.elev);
     const elevMatch  = !isNaN(exportElev) && !isNaN(baseElev) && Math.abs(exportElev-baseElev)<=1.0;
-    if (elevMatch)  return { ...r, _status:'PASS',   _baseElev:baseElev };
-    return { ...r, _status:'REVIEW', _baseElev:baseElev };
+    if (elevMatch)  return { ...r, _precinct: precinct, _status:'PASS',   _baseElev:baseElev };
+    return { ...r, _precinct: precinct, _status:'REVIEW', _baseElev:baseElev };
   });
 }
 
 function auditCoords() {
   const sheet = (exportData['Coordinates']||exportData['coordinates']||[]).filter(r=>r['ModelTitle']);
-  if (!baselineData) return sheet.map(r => ({ ...r, _status:'NA' }));
+  if (!baselineData) return sheet.map(r => ({ ...r, _precinct:'', _status:'NA' }));
   const coordMap = new Map();
   Object.entries(baselineRaw).forEach(([sheetName, rows]) => {
     const bEast  = parseFloat(String(rows[1]?.[5]||''));
@@ -630,22 +735,22 @@ function auditCoords() {
     rows.forEach((row, rowIdx) => {
       if (rowIdx===0) return;
       const name = String(row[0]||'').trim();
-      if (name) coordMap.set(name.toLowerCase(), { east:bEast, north:bNorth, elev:bElev, angle:bAngle });
+      if (name) coordMap.set(name.toLowerCase(), { east:bEast, north:bNorth, elev:bElev, angle:bAngle, precinct:sheetName });
     });
   });
   const angTol = parseFloat(document.getElementById('angleTolerance').value)||0.01;
   return sheet.map(r => {
     const key = String(r['ModelTitle']||'').trim().toLowerCase();
     const exp = coordMap.get(key);
-    if (!exp) return { ...r, _status:'NA' };
+    if (!exp) return { ...r, _precinct:'', _status:'NA' };
     const ioE=parseFloat(r['PL_East_mm']), ioN=parseFloat(r['PL_North_mm']);
     const ioZ=parseFloat(r['PL_Elevation_mm']), ioA=parseFloat(r['PL_TrueNorth_deg']);
     const tol=1.0;
     const eOk=!isNaN(ioE)&&!isNaN(exp.east) &&Math.abs(ioE-exp.east) <=tol;
     const nOk=!isNaN(ioN)&&!isNaN(exp.north)&&Math.abs(ioN-exp.north)<=tol;
     const zOk=!isNaN(ioZ)&&!isNaN(exp.elev) &&Math.abs(ioZ-exp.elev) <=tol;
-    const aOk=!isNaN(ioA)&&!isNaN(exp.angle)&&Math.abs(ioA-exp.angle)<=angTol;
-    return { ...r, _status:(eOk&&nOk&&zOk&&aOk)?'PASS':'FAIL', _eOk:eOk,_nOk:nOk,_zOk:zOk,_aOk:aOk };
+    const aOk=!isNaN(ioA)&&!isNaN(exp.angle)&&Math.abs((360-ioA)-exp.angle)<=angTol;
+    return { ...r, _precinct: exp.precinct||'', _status:(eOk&&nOk&&zOk&&aOk)?'PASS':'FAIL', _eOk:eOk,_nOk:nOk,_zOk:zOk,_aOk:aOk };
   });
 }
 
@@ -675,10 +780,10 @@ function updateKPIs(data) {
   data = data || auditResults;
   const g = data.grids;
   const _e_kpi_total=document.getElementById('kpi-total'); if(_e_kpi_total) _e_kpi_total.textContent=g.length||'—';
-  const _e_kpi_pass=document.getElementById('kpi-pass'); if(_e_kpi_pass) _e_kpi_pass.textContent=g.filter(r=>r._status==='PASS').length;
-  const _e_kpi_fail=document.getElementById('kpi-fail'); if(_e_kpi_fail) _e_kpi_fail.textContent=g.filter(r=>r._status==='FAIL').length;
-  const _e_kpi_missing=document.getElementById('kpi-missing'); if(_e_kpi_missing) _e_kpi_missing.textContent=g.filter(r=>r._status==='MISSING').length;
-  const _e_kpi_added=document.getElementById('kpi-added'); if(_e_kpi_added) _e_kpi_added.textContent=g.filter(r=>r._status==='ADDED').length;
+  const _e_kpi_pass=document.getElementById('kpi-pass'); if(_e_kpi_pass) _e_kpi_pass.textContent=g.filter(r=>r._status.startsWith('PASS')).length;
+  const _e_kpi_fail=document.getElementById('kpi-fail'); if(_e_kpi_fail) _e_kpi_fail.textContent=g.filter(r=>r._status.startsWith('FAIL')).length;
+  const _e_kpi_missing=document.getElementById('kpi-missing'); if(_e_kpi_missing) _e_kpi_missing.textContent=g.filter(r=>r._status.startsWith('MISSING')).length;
+  const _e_kpi_added=document.getElementById('kpi-added'); if(_e_kpi_added) _e_kpi_added.textContent=g.filter(r=>r._status.startsWith('ADDED')).length;
   const _e_cnt_grids=document.getElementById('cnt-grids'); if(_e_cnt_grids) _e_cnt_grids.textContent=auditResults.grids.length||'—';
   const _e_cnt_levels=document.getElementById('cnt-levels'); if(_e_cnt_levels) _e_cnt_levels.textContent=auditResults.levels.length||'—';
   const _e_cnt_coords=document.getElementById('cnt-coords'); if(_e_cnt_coords) _e_cnt_coords.textContent=auditResults.coords.length||'—';
@@ -725,18 +830,21 @@ function updateKPIs(data) {
 function applyFilters() {
   const q = document.getElementById('filterSearch').value.toLowerCase();
   filteredResults.grids = auditResults.grids.filter(r => {
+    if (selBuildings.size && !selBuildings.has(r._precinct))    return false;
     if (selModels.size   && !selModels.has(r['SourceModel']))   return false;
     if (selStatuses.size && !selStatuses.has(r._status))        return false;
     if (q && ![r['SourceModel'],r['GridName']].map(v=>String(v||'')).join(' ').toLowerCase().includes(q)) return false;
     return true;
   });
   filteredResults.levels = auditResults.levels.filter(r => {
+    if (selBuildings.size && !selBuildings.has(r._precinct))    return false;
     if (selModels.size   && !selModels.has(r['SourceModel']))   return false;
     if (selStatuses.size && !selStatuses.has(r._status))        return false;
     if (q && !String(r['Level Name']||'').toLowerCase().includes(q)) return false;
     return true;
   });
   filteredResults.coords = auditResults.coords.filter(r => {
+    if (selBuildings.size && !selBuildings.has(r._precinct))    return false;
     if (selModels.size   && !selModels.has(r['ModelTitle']))    return false;
     if (selStatuses.size && !selStatuses.has(r._status))        return false;
     return true;
@@ -756,16 +864,19 @@ function applyFilters() {
   const q2 = document.getElementById('filterSearch').value.toLowerCase();
   const kpiData = {
     grids: auditResults.grids.filter(r => {
+      if (selBuildings.size && !selBuildings.has(r._precinct))    return false;
       if (selModels.size   && !selModels.has(r['SourceModel']))   return false;
       if (q2 && ![r['SourceModel'],r['GridName']].map(v=>String(v||'')).join(' ').toLowerCase().includes(q2)) return false;
       return true;
     }),
     levels: auditResults.levels.filter(r => {
+      if (selBuildings.size && !selBuildings.has(r._precinct))    return false;
       if (selModels.size   && !selModels.has(r['SourceModel']))   return false;
       if (q2 && !String(r['Level Name']||'').toLowerCase().includes(q2)) return false;
       return true;
     }),
     coords: auditResults.coords.filter(r => {
+      if (selBuildings.size && !selBuildings.has(r._precinct))    return false;
       if (selModels.size   && !selModels.has(r['ModelTitle']))    return false;
       return true;
     }),
@@ -781,8 +892,10 @@ function applyFilters() {
 
 // ── RENDER ─────────────────────────────────────────────────────────────────
 function pill(s) {
-  const m={PASS:'p-pass',FAIL:'p-fail',MISSING:'p-miss',ADDED:'p-warn',Host:'p-host',REVIEW:'p-review','UNTICK BUILDING STOREY':'p-untick',NA:'p-na','NOT FOUND':'p-miss'};
-  return `<span class="pill ${m[s]||''}">${s}</span>`;
+  const m={PASS:'p-pass',FAIL:'p-fail',MISSING:'p-miss',ADDED:'p-warn',Host:'p-host',REVIEW:'p-review','UNTICK BUILDING STOREY':'p-untick',NA:'p-na','NOT FOUND':'p-miss','FILE NOT FOUND':'p-miss'};
+  // Strip ' (FILE NAME ERROR)' suffix for CSS class lookup, keep full text for display
+  const base = s.replace(' (FILE NAME ERROR)','').trim();
+  return `<span class="pill ${m[base]||m[s]||''}">${s}</span>`;
 }
 function dcell(val, tol) {
   if (val===''||val==null) return '<td>—</td>';
@@ -803,10 +916,30 @@ function renderGridsTable() {
   </tr>`).join('');
 }
 
+
+function sortLevels() {
+  levelsSortDir = levelsSortDir === 1 ? -1 : 1;
+  const th = document.getElementById('thLevelElev');
+  if (th) {
+    th.className = 'sortable ' + (levelsSortDir === 1 ? 'asc' : 'desc');
+  }
+  renderLevelsTable();
+}
 function renderLevelsTable() {
   const tb=document.getElementById('levelsBody');
   if (!filteredResults.levels.length) { tb.innerHTML='<tr><td colspan="7"><div class="empty"><div class="empty-icon">≡</div><div class="empty-title">No results</div></div></td></tr>'; return; }
-  tb.innerHTML=filteredResults.levels.map(r=>{
+  let rows = filteredResults.levels.slice();
+  if (levelsSortDir !== 0) {
+    rows.sort((a, b) => {
+      const ea = parseElevMm(a['Param_Elevation']);
+      const eb = parseElevMm(b['Param_Elevation']);
+      if (isNaN(ea) && isNaN(eb)) return 0;
+      if (isNaN(ea)) return 1;
+      if (isNaN(eb)) return -1;
+      return levelsSortDir * (ea - eb);
+    });
+  }
+  tb.innerHTML=rows.map(r=>{
     const elev = parseElevMm(r['Param_Elevation']);
     const elevDisp = isNaN(elev) ? (r['Param_Elevation']||'—') : elev.toFixed(2);
     const elevCol = (r._status==='REVIEW'||r._status==='FAIL') ? '#ef4444' : '#e2e8f0';
@@ -848,7 +981,7 @@ function renderCoordsTable() {
       ${coordCell(r['PL_East_mm'],oorE)}
       ${coordCell(r['PL_North_mm'],oorN)}
       ${coordCell(r['PL_Elevation_mm'],false)}
-      ${coordCell(r['PL_TrueNorth_deg'],false)}
+      ${(()=>{ const a=parseFloat(r['PL_TrueNorth_deg']); return coordCell(!isNaN(a)?(360-a).toFixed(3):r['PL_TrueNorth_deg'],false); })()}
     </tr>`;
   }).join('');
 }
@@ -876,8 +1009,8 @@ function renderLoadedModelsTable() {
 // ── DONUT ──────────────────────────────────────────────────────────────────
 function renderDonut(data) {
   const g=(data||auditResults).grids;
-  const pass=g.filter(r=>r._status==='PASS').length, fail=g.filter(r=>r._status==='FAIL').length;
-  const miss=g.filter(r=>r._status==='MISSING').length, added=g.filter(r=>r._status==='ADDED').length;
+  const pass=g.filter(r=>r._status.startsWith('PASS')).length, fail=g.filter(r=>r._status.startsWith('FAIL')).length;
+  const miss=g.filter(r=>r._status.startsWith('MISSING')).length, added=g.filter(r=>r._status.startsWith('ADDED')).length;
   if (!pass&&!fail&&!miss&&!added) return;
   if (typeof Plotly==='undefined') { setTimeout(renderDonut,200); return; }
   Plotly.react('chartDonut',[{
@@ -921,7 +1054,7 @@ function generateBulkPDF() {
   const hdr=`<div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:2px solid #1e3a6e;margin-bottom:12px"><div><div style="font-size:18px;font-weight:bold;color:#0a1f4e">${proj}</div><div style="font-size:9px;color:#64748b">BEP Audit Report · ${date}</div></div>${logoHtml}</div>`;
   const TH='padding:4px 7px;font-size:7px;font-weight:bold;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;text-align:left;background:#0f1f3d;white-space:nowrap;';
   const TD='padding:3px 7px;font-size:8px;border-bottom:1px solid #e2e8f0;white-space:nowrap;';
-  const bgMap={PASS:'background:#dcfce7;color:#166534',FAIL:'background:#fee2e2;color:#991b1b',MISSING:'background:#f3e8ff;color:#6b21a8',ADDED:'background:#fef3c7;color:#92400e',REVIEW:'background:#fef3c7;color:#92400e','UNTICK BUILDING STOREY':'background:#fee2e2;color:#991b1b',NA:'background:#f1f5f9;color:#94a3b8','NOT FOUND':'background:#f3e8ff;color:#6b21a8',Host:'background:#f1f5f9;color:#475569'};
+  const bgMap={PASS:'background:#dcfce7;color:#166534',FAIL:'background:#fee2e2;color:#991b1b',MISSING:'background:#f3e8ff;color:#6b21a8',ADDED:'background:#fef3c7;color:#92400e',REVIEW:'background:#fef3c7;color:#92400e','UNTICK BUILDING STOREY':'background:#fee2e2;color:#991b1b',NA:'background:#f1f5f9;color:#94a3b8','NOT FOUND':'background:#f3e8ff;color:#6b21a8','FILE NOT FOUND':'background:#f3e8ff;color:#6b21a8','PASS (FILE NAME ERROR)':'background:#dcfce7;color:#166534','FAIL (FILE NAME ERROR)':'background:#fee2e2;color:#991b1b','MISSING (FILE NAME ERROR)':'background:#f3e8ff;color:#6b21a8','ADDED (FILE NAME ERROR)':'background:#fef3c7;color:#92400e',Host:'background:#f1f5f9;color:#475569'};
   function bdg(s){return `<span style="font-size:7px;font-weight:bold;padding:2px 7px;border-radius:10px;${bgMap[s]||''}">${s}</span>`;}
   function dcP(val,t){if(val===''||val==null)return `<td style="${TD}color:#94a3b8">—</td>`;const n=parseFloat(val);const col=isNaN(n)?'#334155':n>t?'#991b1b':n>t*0.5?'#92400e':'#166534';return `<td style="${TD}color:${col}">${isNaN(n)?val:n.toFixed(2)}</td>`;}
   let body=hdr;
@@ -994,8 +1127,8 @@ function generatePDF() {
   closePdfModal();
   const date=fmtDateLong(new Date()), tol=parseFloat(document.getElementById('tolerance').value)||1.0, angTol=parseFloat(document.getElementById('angleTolerance').value)||0.01;
   const rows=filteredResults.grids, all=auditResults.grids;
-  const pass=all.filter(r=>r._status==='PASS').length, fail=all.filter(r=>r._status==='FAIL').length;
-  const miss=all.filter(r=>r._status==='MISSING').length, added=all.filter(r=>r._status==='ADDED').length;
+  const pass=all.filter(r=>r._status.startsWith('PASS')).length, fail=all.filter(r=>r._status.startsWith('FAIL')).length;
+  const miss=all.filter(r=>r._status.startsWith('MISSING')).length, added=all.filter(r=>r._status.startsWith('ADDED')).length;
   const total=all.length;
   function donutSVG(){
     const data=[{val:pass,col:'#22c55e',lbl:'Pass'},{val:fail,col:'#ef4444',lbl:'Fail'},{val:miss,col:'#a855f7',lbl:'Missing'},{val:added,col:'#f59e0b',lbl:'Added'}].filter(d=>d.val>0);
