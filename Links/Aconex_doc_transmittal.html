@@ -657,6 +657,20 @@ function loadTransmittal(buffer, fname) {
     docKeyCol = txHeaders.findIndex(h => keyNames.some(n => h.toLowerCase().includes(n)));
     if (docKeyCol < 0) docKeyCol = 1;
 
+    // Dynamic column detection from headers
+    // Organisation: any header containing "organization" (case-insensitive)
+    // Discipline:   exact match "Discipline" first, then partial fallback
+    const txOrgCol  = txHeaders.findIndex(h => h.toLowerCase().includes('organization'));
+    const txDiscCol = (() => {
+      let idx = txHeaders.findIndex(h => h.toLowerCase().trim() === 'discipline');
+      if (idx < 0) idx = txHeaders.findIndex(h => h.toLowerCase().includes('discipline'));
+      return idx;
+    })();
+
+    if (txOrgCol  < 0) throw new Error('Could not find Organisation column: no header containing "Organization".');
+    if (txDiscCol < 0) throw new Error('Could not find Discipline column: no header matching "Discipline".');
+    console.log(`[Transmittal] Org col: "${txHeaders[txOrgCol]}" (${txOrgCol}) | Disc col: "${txHeaders[txDiscCol]}" (${txDiscCol})`);
+
     totalRegistered = 0;
     for (let i = txDataStart; i < raw.length; i++) {
       const v = parseInt(raw[i][COL_COUNT], 10);
@@ -666,8 +680,8 @@ function loadTransmittal(buffer, fname) {
     allRows = [];
     for (let i = txDataStart; i < raw.length; i++) {
       const row = raw[i];
-      const disc  = String(row[COL_DISC]    || '').trim();
-      const org   = String(row[COL_ORG]     || '').trim();
+      const disc  = String(row[txDiscCol]  || '').trim();
+      const org   = String(row[txOrgCol]   || '').trim();
       const dtype = String(row[COL_DOCTYPE] || '').trim();
       const key   = String(row[docKeyCol]   || '').trim();
       if (!disc || !org || !key) continue;
