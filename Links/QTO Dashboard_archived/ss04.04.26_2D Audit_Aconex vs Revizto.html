@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>2D Sheet Audit | Aconex vs Revizto</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+<style>
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; background: #001B49; color: #f9fafb; min-height: 100vh; font-size: 14px; }
+.topbar { background: #0a1f4e; border-bottom: 2px solid #1e3a6e; height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; position: sticky; top: 0; z-index: 200; gap: 12px; }
+.topbar-left { width: 200px; }
+.topbar-center { display: flex; gap: 4px; background: rgba(0,0,0,0.35); border: 1px solid #3b82f6; border-radius: 10px; padding: 5px; box-shadow: 0 0 0 1px rgba(59,130,246,0.15), 0 4px 16px rgba(0,0,0,0.4); }
+.top-nav { padding: 7px 18px; border-radius: 7px; font-size: 12px; font-weight: bold; color: #94a3b8; cursor: pointer; transition: all 0.18s; border: none; background: transparent; white-space: nowrap; }
+.top-nav:hover { color: #f9fafb; background: rgba(255,255,255,0.06); }
+.top-nav.active { background: linear-gradient(135deg,#3b82f6,#1d4ed8); color: #fff; box-shadow: 0 2px 8px rgba(59,130,246,0.5); }
+.topbar-right { width: 200px; display: flex; justify-content: flex-end; align-items: center; }
+.topbar-logo { height: 0px; object-fit: contain; cursor: pointer; }
+.logo-placeholder { height: 38px; width: 120px; border: 1px dashed #1e3a6e; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #4b6a9e; cursor: pointer; position: relative; text-align: center; line-height: 1.3; padding: 0 4px; }
+.logo-placeholder:hover { border-color: #3b82f6; color: #93c5fd; }
+.logo-placeholder input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.sidebar { width: 262px; min-width: 262px; background: #0a1f4e; border-right: 1px solid #1e3a6e; padding: 20px 14px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
+.section-header { font-size: 10px; font-weight: bold; letter-spacing: 0.12em; text-transform: uppercase; color: #4b6a9e; padding: 14px 8px 6px 8px; }
+.folder-box { background: #111827; border: 1px solid #1e3a6e; border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: border-color 0.2s; position: relative; }
+.folder-box:hover { border-color: #3b82f6; }
+.folder-box.loaded { border-color: #22c55e; }
+.folder-box input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.folder-icon { font-size: 18px; flex-shrink: 0; }
+.folder-text { flex: 1; min-width: 0; }
+.folder-label { font-size: 12px; font-weight: bold; color: #cbd5e1; }
+.folder-sub { font-size: 10px; color: #64748b; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.folder-sub.ok { color: #22c55e; }
+.module-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; cursor: pointer; transition: all 0.15s; border-left: 3px solid transparent; color: #94a3b8; font-size: 13px; }
+.module-item:hover { background: rgba(59,130,246,0.07); color: #f9fafb; }
+.module-item.active { background: rgba(59,130,246,0.12); border-left-color: #3b82f6; color: #93c5fd; font-weight: bold; }
+.module-item.disabled { opacity: 0.4; cursor: default; pointer-events: none; }
+.module-icon { width: 22px; text-align: center; font-size: 14px; flex-shrink: 0; }
+.module-label { flex: 1; }
+.module-count { font-size: 10px; background: rgba(0,0,0,0.3); padding: 2px 7px; border-radius: 10px; color: #64748b; font-family: 'Courier New', monospace; }
+.module-item.active .module-count { background: rgba(59,130,246,0.2); color: #93c5fd; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: #374151; }
+.status-dot.ok  { background: #22c55e; }
+.status-dot.err { background: #ef4444; }
+.s-divider { border: none; border-top: 1px solid #1e3a6e; margin: 4px 0; }
+.filter-group { display: flex; flex-direction: column; gap: 8px; padding: 0 2px; }
+.filter-label { font-size: 11px; color: #64748b; }
+.chip-wrap { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip-scroll { max-height: 90px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 4px; background: #111827; border: 1px solid #1e3a6e; border-radius: 7px; padding: 6px; }
+.chip { font-size: 10px; padding: 3px 9px; border-radius: 12px; border: 1px solid #1e3a6e; background: #111827; color: #94a3b8; cursor: pointer; transition: all 0.12s; user-select: none; white-space: nowrap; }
+.chip:hover { border-color: #3b82f6; color: #93c5fd; }
+.chip.active { background: #1e3a6e; border-color: #3b82f6; color: #93c5fd; font-weight: bold; }
+input.f-inp { background: #111827; border: 1px solid #1e3a6e; border-radius: 7px; color: #f9fafb; padding: 6px 9px; font-size: 12px; font-family: Arial, sans-serif; width: 100%; outline: none; }
+input.f-inp:focus { border-color: #3b82f6; }
+.tol-row { display: flex; align-items: center; gap: 8px; }
+.tol-row input { width: 70px; }
+.tol-unit { font-size: 11px; color: #64748b; }
+.btn-clear { background: transparent; border: 1px solid #1e3a6e; color: #94a3b8; padding: 6px 12px; border-radius: 7px; font-size: 11px; cursor: pointer; width: 100%; margin-top: 2px; font-family: Arial, sans-serif; transition: all 0.15s; }
+.btn-clear:hover { border-color: #374151; background: #111827; color: #f9fafb; }
+.main { flex: 1; padding: 24px 28px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; min-width: 0; }
+.kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.kpi { background: #1e293b; border: 1px solid #1e3a6e; border-radius: 10px; padding: 16px 18px; border-top: 3px solid transparent; }
+.kpi.k-blue   { border-top-color: #3b82f6; } .kpi.k-green { border-top-color: #22c55e; }
+.kpi.k-red    { border-top-color: #ef4444; } .kpi.k-purple { border-top-color: #a855f7; }
+.kpi.k-amber  { border-top-color: #f59e0b; }
+.kpi-label { font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; }
+.kpi-val   { font-size: 30px; font-weight: bold; font-family: 'Courier New', monospace; margin: 5px 0 2px; line-height: 1; }
+.kpi.k-blue .kpi-val { color: #3b82f6; } .kpi.k-green .kpi-val { color: #22c55e; }
+.kpi.k-red  .kpi-val { color: #ef4444; } .kpi.k-purple .kpi-val { color: #a855f7; }
+.kpi.k-amber .kpi-val { color: #f59e0b; }
+.kpi-sub { font-size: 11px; color: #4b6a9e; }
+.panel { background: #1e293b; border: 1px solid #1e3a6e; border-radius: 10px; overflow: hidden; }
+.panel-head { background: #0f1f3d; border-bottom: 1px solid #1e3a6e; padding: 13px 18px; display: flex; align-items: center; justify-content: space-between; }
+.panel-title { font-size: 13px; font-weight: bold; color: #cbd5e1; }
+.panel-actions { display: flex; gap: 8px; }
+.btn-sm { background: #374151; color: #f9fafb; border: none; padding: 5px 13px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; font-family: Arial, sans-serif; transition: background 0.15s; }
+.btn-sm:hover { background: #4b5563; }
+.two-col { display: grid; grid-template-columns: 280px 1fr; gap: 14px; align-items: start; }
+.tbl-wrap { overflow-x: auto; max-height: calc(100vh - 320px); overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead th { background: #0f1f3d; padding: 9px 13px; text-align: left; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; border-bottom: 1px solid #1e3a6e; white-space: nowrap; position: sticky; top: 0; z-index: 1; }
+tbody tr { border-bottom: 1px solid rgba(30,58,110,0.4); transition: background 0.1s; }
+tbody tr:hover { background: rgba(59,130,246,0.05); }
+tbody td { padding: 9px 13px; color: #e2e8f0; font-family: 'Courier New', monospace; font-size: 11px; white-space: nowrap; }
+tbody td.str { font-family: Arial, sans-serif; font-size: 12px; }
+.pill { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; font-family: Arial, sans-serif; }
+.p-pass { background: rgba(34,197,94,0.12);  color: #22c55e; }
+.p-fail { background: rgba(239,68,68,0.12);   color: #ef4444; }
+.p-miss { background: rgba(168,85,247,0.12);  color: #a855f7; }
+.p-warn { background: rgba(245,158,11,0.12);  color: #f59e0b; }
+.p-host { background: rgba(100,116,139,0.12); color: #94a3b8; }
+.d-ok { color: #22c55e; } .d-warn { color: #f59e0b; } .d-fail { color: #ef4444; }
+.p-review { background: rgba(245,158,11,0.12); color: #f59e0b; }
+.p-na     { background: rgba(100,116,139,0.08); color: #4b6a9e; }
+.p-untick { background: rgba(239,68,68,0.08); color: #fca5a5; }
+.empty { padding: 48px 20px; text-align: center; color: #4b6a9e; }
+.empty-icon { font-size: 28px; margin-bottom: 8px; opacity: 0.5; }
+.empty-title { font-size: 13px; font-weight: bold; color: #64748b; margin-bottom: 4px; }
+.empty-sub { font-size: 11px; }
+.tab-view { display: none; flex-direction: column; gap: 18px; }
+.tab-view.active { display: flex; }
+.idle-screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 60px 20px; text-align: center; }
+.idle-icon { font-size: 48px; opacity: 0.2; }
+.idle-title { font-size: 18px; font-weight: bold; color: #4b6a9e; }
+.idle-sub { font-size: 13px; color: #374151; max-width: 380px; line-height: 1.6; }
+.placeholder-panel { background: #1e293b; border: 1px dashed #1e3a6e; border-radius: 10px; padding: 36px 20px; text-align: center; color: #4b6a9e; }
+.placeholder-panel .ph-icon { font-size: 28px; margin-bottom: 10px; opacity: 0.4; }
+.placeholder-panel .ph-title { font-size: 13px; font-weight: bold; color: #64748b; }
+.page-placeholder { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: #4b6a9e; text-align: center; padding: 60px; }
+.page-placeholder .ph-big { font-size: 52px; opacity: 0.15; }
+.page-placeholder h2 { font-size: 20px; color: #64748b; font-weight: bold; }
+.page-placeholder p { font-size: 13px; color: #374151; max-width: 340px; line-height: 1.6; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1e3a6e; border-radius: 3px; }
+@media print { .topbar, .sidebar, .idle-screen, #pdfModal { display: none !important; } }
+.row-cb { cursor:pointer; accent-color:#3b82f6; width:14px; height:14px; }
+.btn-find { background:linear-gradient(135deg,#7c3aed,#4f46e5); color:#fff; border:none; padding:5px 13px; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer; font-family:Arial,sans-serif; transition:background 0.15s; white-space:nowrap; }
+.btn-find:hover { background:linear-gradient(135deg,#6d28d9,#4338ca); }
+.btn-selall { background:#1e3a6e; color:#93c5fd; border:none; padding:5px 13px; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer; font-family:Arial,sans-serif; transition:background 0.15s; white-space:nowrap; }
+.btn-selall:hover { background:#2d4f8e; }
+.copy-toast { position:fixed; bottom:28px; right:28px; background:#7c3aed; color:#fff; padding:10px 18px; border-radius:8px; font-size:12px; font-weight:bold; box-shadow:0 4px 18px rgba(0,0,0,0.4); z-index:9999; opacity:0; transition:opacity 0.3s; pointer-events:none; }
+.col-filter-block { background:#111827; border:1px solid #1e3a6e; border-radius:7px; padding:8px 10px; }
+.col-filter-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.col-filter-label { font-size:11px; font-weight:bold; color:#93c5fd; }
+.col-filter-remove { background:transparent; border:none; color:#64748b; cursor:pointer; font-size:13px; line-height:1; padding:2px 4px; border-radius:4px; transition:color 0.15s; }
+.col-filter-remove:hover { color:#ef4444; }
+.btn-add-filter { background:transparent; border:1px dashed #1e3a6e; color:#4b6a9e; padding:6px 12px; border-radius:7px; font-size:11px; cursor:pointer; width:100%; font-family:Arial,sans-serif; transition:all 0.15s; text-align:center; }
+.btn-add-filter:hover:not(:disabled) { border-color:#3b82f6; color:#93c5fd; background:rgba(59,130,246,0.05); }
+.btn-add-filter:disabled { opacity:0.35; cursor:default; }
+.col-picker { background:#111827; border:1px solid #3b82f6; border-radius:7px; color:#f9fafb; padding:6px 9px; font-size:12px; font-family:Arial,sans-serif; width:100%; outline:none; cursor:pointer; }
+
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-left" style="min-width:200px;"></div>
+  <div class="topbar-center" style="border:none;background:transparent;box-shadow:none;">
+    <span style="font-size:15px;font-weight:bold;color:#f9fafb;letter-spacing:0.02em;">2D Sheet Audit | Aconex vs Revizto</span>
+  </div>
+  <div class="topbar-right" style="display:flex;align-items:center;gap:10px;min-width:200px;justify-content:flex-end;">
+    <img class="topbar-logo" src="sarah-white-logo.png" alt="Logo" onerror="this.style.display='none'">
+  </div>
+</div>
+
+<!-- 2D AUDIT PAGE -->
+<div id="page-audit2d" style="display:flex;min-height:calc(100vh - 64px);flex-direction:row;">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="section-header">Data Source</div>
+    <div class="folder-box" id="aconexBox" style="position:relative;">
+      <input type="file" accept=".xlsx,.xls" onchange="handleAconexFile(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;">
+      <div class="folder-icon">📄</div>
+      <div class="folder-text">
+        <div class="folder-label">Load Aconex Sheets</div>
+        <div class="folder-sub" id="aconexSub">aconex_sheets.xlsx</div>
+      </div>
+    </div>
+    <div class="folder-box" id="reviztoBox" style="margin-top:4px;position:relative;">
+      <input type="file" accept=".xlsx,.xls" onchange="handleReviztoFile(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;">
+      <div class="folder-icon">📄</div>
+      <div class="folder-text">
+        <div class="folder-label">Load Revizto Sheets</div>
+        <div class="folder-sub" id="reviztoSub">revizto_sheets.xlsx</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:3px;padding:4px 8px;margin-top:4px;">
+      <div style="display:flex;align-items:center;gap:7px;">
+        <div class="status-dot" id="dot-aconex"></div>
+        <span style="font-size:10px;color:#64748b;" id="lbl-aconex">Aconex: not loaded</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;">
+        <div class="status-dot" id="dot-revizto"></div>
+        <span style="font-size:10px;color:#64748b;" id="lbl-revizto">Revizto: not loaded</span>
+      </div>
+    </div>
+    <hr class="s-divider">
+    <div class="section-header">Filters</div>
+    <div class="filter-group">
+      <div class="filter-label">Discipline</div>
+      <div class="chip-scroll" id="chip2dDiscipline"><span style="font-size:10px;color:#374151">Load files to populate</span></div>
+      <div class="filter-label">Status</div>
+      <div class="chip-wrap" id="chip2dStatus">
+        <span class="chip active" data-val="" onclick="toggle2dStatus(this,'')">All</span>
+        <span class="chip" data-val="PASS" onclick="toggle2dStatus(this,'PASS')">Pass</span>
+        <span class="chip" data-val="FAIL" onclick="toggle2dStatus(this,'FAIL')">Fail</span>
+        <span class="chip" data-val="MISSING IN REVIZTO" onclick="toggle2dStatus(this,'MISSING IN REVIZTO')">Missing in Revizto</span>
+        <span class="chip" data-val="MISSING IN ACONEX" onclick="toggle2dStatus(this,'MISSING IN ACONEX')">Missing in Aconex</span>
+      </div>
+      <div id="colFiltersContainer" style="display:flex;flex-direction:column;gap:6px;"></div>
+      <button id="btnAddFilter" class="btn-add-filter" onclick="showColPicker()" disabled>＋ Add Column Filter</button>
+      <button class="btn-clear" onclick="clear2dFilters()">✕  Clear Filters</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="idle-screen" id="auditIdleScreen2d">
+      <div class="idle-icon">📐</div>
+      <div class="idle-title">2D Sheet Audit | Aconex vs Revizto</div>
+      <div class="idle-sub">Load <strong>aconex_sheets.xlsx</strong> and <strong>revizto_sheets.xlsx</strong> to begin the comparison.</div>
+    </div>
+
+    <div id="auditContent2d" style="display:none;flex-direction:column;gap:20px;">
+      <!-- KPI row -->
+      <div class="kpi-row">
+        <div class="kpi k-blue"><div class="kpi-label">Total Aconex</div><div class="kpi-val" id="kpi2d-total">—</div><div class="kpi-sub">filtered baseline</div></div>
+        <div class="kpi k-green"><div class="kpi-label">Pass</div><div class="kpi-val" id="kpi2d-pass">—</div><div class="kpi-sub">revisions match</div></div>
+        <div class="kpi k-red"><div class="kpi-label">Fail</div><div class="kpi-val" id="kpi2d-fail">—</div><div class="kpi-sub">revision mismatch</div></div>
+        <div class="kpi k-purple"><div class="kpi-label">Missing Revizto</div><div class="kpi-val" id="kpi2d-missR">—</div><div class="kpi-sub">not in Revizto</div></div>
+        <div class="kpi k-amber"><div class="kpi-label">Missing Aconex</div><div class="kpi-val" id="kpi2d-missA">—</div><div class="kpi-sub">not in Aconex</div></div>
+      </div>
+      <!-- Donut + table -->
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Pass / Fail Split</div></div>
+          <div id="chartDonut2d" style="height:240px;"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">📐 Sheet Comparison</div>
+            <div class="panel-actions">
+              <button class="btn-selall" onclick="toggleSelectAll2d(this)">☐ Select All</button>
+              <button class="btn-find" onclick="findInAconex()">🔍 Find in Aconex</button>
+              <button class="btn-sm" onclick="export2dCSV()">⬇ CSV</button>
+              <button class="btn-sm" onclick="open2dPdfModal()" style="background:#1e3a6e;">⬇ PDF</button>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table id="audit2dTable">
+              <thead><tr>
+                <th style="width:32px;"></th><th>Status</th><th>Doc No</th><th>Aconex Title</th><th>Revizto Sheet Title</th>
+                <th>Rev Date</th><th>Aconex Status</th><th>Discipline</th>
+                <th>Aconex Rev</th><th>Revizto Rev</th><th>Tracking ID</th>
+              </tr></thead>
+              <tbody id="audit2dBody">
+                <tr><td colspan="11"><div class="empty"><div class="empty-icon">📐</div><div class="empty-title">No data loaded</div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- PDF MODAL -->
+<div id="pdfModal2d" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:#0a1f4e;border:1px solid #1e3a6e;border-radius:12px;padding:28px 32px;width:380px;">
+    <div style="font-size:15px;font-weight:bold;color:#f9fafb;margin-bottom:6px;">Generate 2D Audit PDF</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:20px;">Report will include filtered rows only.</div>
+    <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:6px;">Project Name</label>
+    <input id="pdfProjectName2d" type="text" placeholder="e.g. NNSHS Stage 2"
+      style="width:100%;background:#111827;border:1px solid #1e3a6e;border-radius:7px;color:#f9fafb;padding:8px 12px;font-size:13px;font-family:Arial,sans-serif;outline:none;box-sizing:border-box;"
+      onkeydown="if(event.key==='Enter')generate2dPDF()"
+      onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#1e3a6e'">
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+      <button onclick="close2dPdfModal()" style="background:transparent;border:1px solid #1e3a6e;color:#94a3b8;padding:7px 18px;border-radius:7px;font-size:12px;cursor:pointer;font-family:Arial,sans-serif;">Cancel</button>
+      <button onclick="generate2dPDF()" style="background:#3b82f6;border:none;color:#fff;padding:7px 20px;border-radius:7px;font-size:12px;font-weight:bold;cursor:pointer;font-family:Arial,sans-serif;">Generate PDF</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ─────────────────────────────────────────────
+let aconexData  = null;
+let reviztoData = null;
+let audit2dAll  = [];
+let audit2dFiltered = [];
+let sel2dDisciplines = new Set();
+let sel2dStatuses    = new Set();
+let aconexFileHeaders = [];   // all column names from loaded Aconex file
+let columnFilters    = {};    // { 'Column Name': Set(['val1','val2']) }
+
+function colIdx(headers,name){return headers.findIndex(h=>String(h||'').toLowerCase().trim()===name.toLowerCase());}
+
+function fmtExcelDate(val) {
+  if (!val) return '—';
+  // If cellDates:true, XLSX returns a JS Date object
+  if (val instanceof Date) {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return String(val.getDate()).padStart(2,'0') + ' ' + months[val.getMonth()] + ' ' + val.getFullYear();
+  }
+  // Fallback: Excel serial number
+  if (typeof val === 'number') {
+    const d = new Date(Math.round((val - 25569) * 86400 * 1000));
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return String(d.getUTCDate()).padStart(2,'0') + ' ' + months[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+  }
+  // Already a string — try parsing it
+  const d = new Date(val);
+  if (!isNaN(d)) {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return String(d.getDate()).padStart(2,'0') + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+  }
+  return String(val).trim();
+}
+function fmtDateLong(d) {
+  const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return String(d.getDate()).padStart(2,'0')+' '+M[d.getMonth()]+' '+d.getFullYear();
+}
+function setDot(id, state) { const el=document.getElementById(id); if(el) el.className='status-dot'+(state?' '+state:''); }
+
+// ── CHIP FILTERS ───────────────────────────────────────────────────────────
+function handleAconexFile(e){
+  const file=e.target.files[0]; if(!file) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true,cellNF:true});
+    const validTypes=['drawing','shop drawing','drawing - cad'];
+    const allRows=[];
+    let headersSet=false;
+    wb.SheetNames.forEach(sheetName=>{
+      const ws=wb.Sheets[sheetName];
+      const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      let headerRowIdx=-1;
+      for(let i=0;i<raw.length;i++){if(raw[i].some(c=>String(c||'').toLowerCase().includes('showing result'))){headerRowIdx=i+1;break;}}
+      if(headerRowIdx===-1) return;
+      const headers=raw[headerRowIdx].map(c=>String(c||'').trim());
+      if(!headersSet){aconexFileHeaders=headers.filter(Boolean);headersSet=true;}
+      const dataRows=raw.slice(headerRowIdx+1);
+      const iFile=colIdx(headers,'File'),iType=colIdx(headers,'Type'),iDocNo=colIdx(headers,'Document No');
+      const iTitle=colIdx(headers,'Title'),iRevDate=colIdx(headers,'Revision Date');
+      const iStatus=colIdx(headers,'Status'),iDisc=colIdx(headers,'Discipline'),iRev=colIdx(headers,'Revision');
+      const iHyperlink=colIdx(headers,'Hyperlink');
+      dataRows.filter(row=>String(row[iFile]||'').toLowerCase().includes('pdf')&&validTypes.includes(String(row[iType]||'').toLowerCase().trim()))
+        .map(row=>({
+          docNo:String(row[iDocNo]||'').trim(),title:String(row[iTitle]||'').trim(),
+          revDate:fmtExcelDate(row[iRevDate]),status:String(row[iStatus]||'').trim(),
+          disc:String(row[iDisc]||'').trim(),rev:String(row[iRev]||'').trim(),
+          trackingId:extractTrackingId(iHyperlink>=0?row[iHyperlink]:''),
+          _cols:Object.fromEntries(headers.map((h,i)=>[h,String(row[i]??'').trim()]))
+        }))
+        .filter(row=>row.docNo)
+        .forEach(row=>allRows.push(row));
+    });
+    aconexData=allRows;
+    const dot=document.getElementById('dot-aconex'); if(dot) dot.className='status-dot ok';
+    const lbl=document.getElementById('lbl-aconex'); if(lbl){lbl.textContent='Aconex: '+file.name+' ('+aconexData.length+' rows)';lbl.style.color='#22c55e';}
+    const sub=document.getElementById('aconexSub'); if(sub){sub.textContent=file.name;sub.className='folder-sub ok';}
+    const box=document.getElementById('aconexBox'); if(box) box.classList.add('loaded');
+    // Enable Add Filter button now that headers are available
+    const addBtn=document.getElementById('btnAddFilter'); if(addBtn) addBtn.disabled=false;
+    if(reviztoData) runAudit2d();
+  };
+  r.readAsArrayBuffer(file);
+}
+
+function handleReviztoFile(e){
+  const file=e.target.files[0]; if(!file) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    const wb=XLSX.read(ev.target.result,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    const headers=raw[0].map(c=>String(c||'').trim());
+    const iSN=colIdx(headers,'Sheet Number'),iRev=colIdx(headers,'Revision'),iST=colIdx(headers,'Sheet Name');
+    reviztoData=raw.slice(1).map(row=>({sheetNo:String(row[iSN]||'').trim(),rev:String(row[iRev]||'').trim(),sheetTitle:String(iST>=0?row[iST]||'':'').trim()})).filter(r=>r.sheetNo);
+    const dot=document.getElementById('dot-revizto'); if(dot) dot.className='status-dot ok';
+    const lbl=document.getElementById('lbl-revizto'); if(lbl){lbl.textContent='Revizto: '+file.name+' ('+reviztoData.length+' rows)';lbl.style.color='#22c55e';}
+    const sub=document.getElementById('reviztoSub'); if(sub){sub.textContent=file.name;sub.className='folder-sub ok';}
+    const box=document.getElementById('reviztoBox'); if(box) box.classList.add('loaded');
+    if(aconexData) runAudit2d();
+  };
+  r.readAsArrayBuffer(file);
+}
+
+function runAudit2d(){
+  if(!aconexData||!reviztoData) return;
+  const rvMap=new Map(); reviztoData.forEach(r=>rvMap.set(r.sheetNo.toUpperCase(),{rev:r.rev,sheetTitle:r.sheetTitle||'—'}));
+  const acSet=new Set(aconexData.map(r=>r.docNo.toUpperCase()));
+  const results=[];
+  aconexData.forEach(ac=>{
+    const key=ac.docNo.toUpperCase();
+    const rvEntry=rvMap.has(key)?rvMap.get(key):null;
+    if(rvEntry!==null){const rvRev=rvEntry.rev,rvTitle=rvEntry.sheetTitle;results.push({...ac,rvRev,rvTitle,_status:ac.rev.trim().toUpperCase()===rvRev.trim().toUpperCase()?'PASS':'FAIL'});}
+    else{results.push({...ac,rvRev:'—',rvTitle:'—',_status:'MISSING IN REVIZTO'});}
+  });
+  reviztoData.forEach(rv=>{if(!acSet.has(rv.sheetNo.toUpperCase()))results.push({docNo:rv.sheetNo,title:'—',revDate:'—',status:'—',disc:'—',rev:'—',rvRev:rv.rev,rvTitle:rv.sheetTitle||'—',_status:'MISSING IN ACONEX'});});
+  audit2dAll=results;
+  build2dDisciplineChips(); apply2dFilters(); update2dKPIs();
+  // Show content BEFORE rendering donut so Plotly gets real container dimensions
+  const idle=document.getElementById('auditIdleScreen2d'); if(idle) idle.style.display='none';
+  const cont=document.getElementById('auditContent2d'); if(cont) cont.style.display='flex';
+  setTimeout(() => { renderDonut2d(); }, 80);
+}
+
+function build2dDisciplineChips(){
+  const discs=[...new Set(audit2dAll.map(r=>r.disc).filter(Boolean).filter(d=>d!=='—'))].sort();
+  const w=document.getElementById('chip2dDiscipline'); if(!w) return;
+  w.innerHTML=''; sel2dDisciplines.clear();
+  discs.forEach(d=>{const c=document.createElement('span');c.className='chip';c.dataset.val=d;c.textContent=d;c.onclick=()=>{c.classList.toggle('active');if(c.classList.contains('active'))sel2dDisciplines.add(d);else sel2dDisciplines.delete(d);apply2dFilters();};w.appendChild(c);});
+}
+
+// ── COLUMN FILTERS ────────────────────────────────────────────────────────
+function showColPicker(){
+  if(!aconexFileHeaders.length){showToast('Load the Aconex file first.');return;}
+  // Remove any existing picker
+  const existing=document.getElementById('colPickerWrap'); if(existing) existing.remove();
+  const already=Object.keys(columnFilters);
+  const available=aconexFileHeaders.filter(h=>h&&!already.includes(h));
+  if(!available.length){showToast('All columns already have filters.');return;}
+  const wrap=document.createElement('div'); wrap.id='colPickerWrap'; wrap.style.cssText='margin-top:4px;';
+  const sel=document.createElement('select'); sel.className='col-picker';
+  const placeholder=document.createElement('option'); placeholder.value=''; placeholder.textContent='— Pick a column —'; sel.appendChild(placeholder);
+  available.forEach(h=>{const o=document.createElement('option');o.value=h;o.textContent=h;sel.appendChild(o);});
+  sel.onchange=()=>{if(sel.value){addColumnFilter(sel.value);wrap.remove();}};
+  // Click-away to cancel
+  setTimeout(()=>{document.addEventListener('click',function handler(ev){if(!wrap.contains(ev.target)&&ev.target.id!=='btnAddFilter'){wrap.remove();document.removeEventListener('click',handler);}});},10);
+  wrap.appendChild(sel); 
+  const container=document.getElementById('colFiltersContainer'); if(container) container.appendChild(wrap);
+  sel.focus();
+}
+
+function addColumnFilter(col){
+  if(columnFilters[col]) return;
+  columnFilters[col]=new Set();
+  // Get unique values for this column from aconexData
+  const vals=[...new Set((aconexData||[]).map(r=>(r._cols&&r._cols[col])||'').filter(v=>v&&v!=='—'))].sort();
+  const container=document.getElementById('colFiltersContainer'); if(!container) return;
+  const block=document.createElement('div'); block.className='col-filter-block'; block.id='cfb-'+col.replace(/\W/g,'_');
+  block.innerHTML=`<div class="col-filter-head"><span class="col-filter-label">📌 ${col}</span><button class="col-filter-remove" onclick="removeColumnFilter('${col.replace(/'/g,"\\'")}')">✕</button></div><div class="chip-scroll" id="cfchips-${col.replace(/\W/g,'_')}"></div>`;
+  container.appendChild(block);
+  const chipWrap=block.querySelector('.chip-scroll');
+  vals.forEach(v=>{
+    const c=document.createElement('span'); c.className='chip'; c.dataset.val=v; c.textContent=v;
+    c.onclick=()=>{c.classList.toggle('active');if(c.classList.contains('active'))columnFilters[col].add(v);else columnFilters[col].delete(v);apply2dFilters();};
+    chipWrap.appendChild(c);
+  });
+  if(!vals.length) chipWrap.innerHTML='<span style="font-size:10px;color:#374151">No values found</span>';
+}
+
+function removeColumnFilter(col){
+  delete columnFilters[col];
+  const block=document.getElementById('cfb-'+col.replace(/\W/g,'_')); if(block) block.remove();
+  apply2dFilters();
+}
+
+function toggle2dStatus(chip,val){
+  if(val===''){sel2dStatuses.clear();document.querySelectorAll('#chip2dStatus .chip').forEach(c=>c.classList.remove('active'));chip.classList.add('active');}
+  else{const all=document.querySelector('#chip2dStatus .chip[data-val=""]');if(all)all.classList.remove('active');chip.classList.toggle('active');if(chip.classList.contains('active'))sel2dStatuses.add(val);else sel2dStatuses.delete(val);if(sel2dStatuses.size===0&&all)all.classList.add('active');}
+  apply2dFilters();
+}
+
+function clear2dFilters(){
+  sel2dDisciplines.clear();sel2dStatuses.clear();
+  columnFilters={};
+  document.querySelectorAll('#chip2dDiscipline .chip').forEach(c=>c.classList.remove('active'));
+  document.querySelectorAll('#chip2dStatus .chip').forEach(c=>c.classList.remove('active'));
+  const container=document.getElementById('colFiltersContainer'); if(container) container.innerHTML='';
+  const all=document.querySelector('#chip2dStatus .chip[data-val=""]'); if(all) all.classList.add('active');
+  apply2dFilters();
+}
+
+function apply2dFilters(){
+  audit2dFiltered=audit2dAll.filter(r=>{
+    if(sel2dDisciplines.size&&!sel2dDisciplines.has(r.disc)) return false;
+    if(sel2dStatuses.size&&!sel2dStatuses.has(r._status)) return false;
+    for(const [col,vals] of Object.entries(columnFilters)){
+      if(vals.size&&!(r._cols&&vals.has(r._cols[col]||''))) return false;
+    }
+    return true;
+  });
+  render2dTable();
+  // KPIs/donut update only when discipline filter active; status-only = table only
+  // Strip status from 2D KPI source — apply discipline only, never status
+  const kpi2dSrc = sel2dDisciplines.size
+    ? audit2dAll.filter(r => sel2dDisciplines.has(r.disc))
+    : audit2dAll;
+  update2dKPIs(kpi2dSrc);
+  if (typeof Plotly !== 'undefined') {
+    const g = kpi2dSrc;
+    const pass=g.filter(r=>r._status==='PASS').length, fail=g.filter(r=>r._status==='FAIL').length;
+    const missR=g.filter(r=>r._status==='MISSING IN REVIZTO').length, missA=g.filter(r=>r._status==='MISSING IN ACONEX').length;
+    if (pass+fail+missR+missA > 0) {
+      Plotly.react('chartDonut2d',[{values:[pass,fail,missR,missA],labels:['Pass','Fail','Missing in Revizto','Missing in Aconex'],type:'pie',hole:0.58,marker:{colors:['#22c55e','#ef4444','#a855f7','#f59e0b']},textinfo:'label+percent',textfont:{size:10,color:'#fff',family:'Arial'},hoverinfo:'label+value',direction:'clockwise'}],{paper_bgcolor:'transparent',plot_bgcolor:'transparent',font:{family:'Arial',size:10,color:'#94a3b8'},margin:{t:10,r:10,b:10,l:10},showlegend:false},{responsive:true,displayModeBar:false});
+      setTimeout(() => { try { Plotly.Plots.resize('chartDonut2d'); } catch(e){} }, 50);
+    }
+  }
+}
+
+function update2dKPIs(data){
+  const g=Array.isArray(data) ? data : (data||audit2dAll);
+  const t=document.getElementById('kpi2d-total'); if(t) t.textContent=g.length||'—';
+  const p=document.getElementById('kpi2d-pass');  if(p) p.textContent=g.filter(r=>r._status==='PASS').length;
+  const f=document.getElementById('kpi2d-fail');  if(f) f.textContent=g.filter(r=>r._status==='FAIL').length;
+  const mr=document.getElementById('kpi2d-missR');if(mr)mr.textContent=g.filter(r=>r._status==='MISSING IN REVIZTO').length;
+  const ma=document.getElementById('kpi2d-missA');if(ma)ma.textContent=g.filter(r=>r._status==='MISSING IN ACONEX').length;
+}
+
+function renderDonut2d(){
+  const g=audit2dAll;
+  const pass=g.filter(r=>r._status==='PASS').length,fail=g.filter(r=>r._status==='FAIL').length;
+  const missR=g.filter(r=>r._status==='MISSING IN REVIZTO').length,missA=g.filter(r=>r._status==='MISSING IN ACONEX').length;
+  if(!pass&&!fail&&!missR&&!missA) return;
+  if(typeof Plotly==='undefined'){setTimeout(renderDonut2d,200);return;}
+  const el=document.getElementById('chartDonut2d'); if(!el) return;
+  Plotly.react('chartDonut2d',[{values:[pass,fail,missR,missA],labels:['Pass','Fail','Missing in Revizto','Missing in Aconex'],type:'pie',hole:0.58,marker:{colors:['#22c55e','#ef4444','#a855f7','#f59e0b']},textinfo:'label+percent',textfont:{size:10,color:'#fff',family:'Arial'},hoverinfo:'label+value',direction:'clockwise'}],{paper_bgcolor:'transparent',plot_bgcolor:'transparent',font:{family:'Arial',size:10,color:'#94a3b8'},margin:{t:10,r:10,b:10,l:10},showlegend:false},{responsive:true,displayModeBar:false});
+  setTimeout(() => { try { Plotly.Plots.resize('chartDonut2d'); } catch(e){} }, 50);
+}
+
+function render2dTable(){
+  const tb=document.getElementById('audit2dBody'); if(!tb) return;
+  if(!audit2dFiltered.length){tb.innerHTML='<tr><td colspan="11"><div class="empty"><div class="empty-icon">📐</div><div class="empty-title">No results match current filters</div></div></td></tr>';return;}
+  const pillMap={'PASS':'p-pass','FAIL':'p-fail','MISSING IN REVIZTO':'p-miss','MISSING IN ACONEX':'p-warn'};
+  tb.innerHTML=audit2dFiltered.map(r=>{
+    const col=r._status==='FAIL'?'color:#ef4444':r._status==='PASS'?'color:#22c55e':'';
+    const tid=r.trackingId||'';
+    const tidDisplay=tid?`<span style="font-size:10px;color:#64748b;font-family:'Courier New',monospace;">${tid}</span>`:'<span style="color:#374151">—</span>';
+    return `<tr><td style="text-align:center;padding:9px 8px;"><input type="checkbox" class="row-cb" data-trackingid="${tid}" ${!tid?'disabled title="No tracking ID"':''}></td><td><span class="pill ${pillMap[r._status]||''}">${r._status}</span></td><td>${r.docNo||'—'}</td><td class="str">${r.title||'—'}</td><td class="str">${r.rvTitle||'—'}</td><td>${r.revDate||'—'}</td><td>${r.status||'—'}</td><td class="str">${r.disc||'—'}</td><td style="${col}">${r.rev||'—'}</td><td style="${col}">${r.rvRev||'—'}</td><td>${tidDisplay}</td></tr>`;
+  }).join('');
+}
+
+function export2dCSV(){const tbl=document.getElementById('audit2dTable');if(!tbl)return;const rows=[...tbl.rows].map(r=>[...r.cells].slice(1).map(c=>'"'+c.innerText.replace(/\n/g,' ').replace(/"/g,'""')+'"').join(','));const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'}));a.download='2d_audit_'+new Date().toISOString().slice(0,10)+'.csv';a.click();}
+
+function open2dPdfModal(){const m=document.getElementById('pdfModal2d');if(m)m.style.display='flex';const i=document.getElementById('pdfProjectName2d');if(i)i.focus();}
+function close2dPdfModal(){const m=document.getElementById('pdfModal2d');if(m)m.style.display='none';}
+
+// ── TRACKING ID ───────────────────────────────────────────────────────────
+function extractTrackingId(hyperlink){
+  if(!hyperlink) return '';
+  const s=String(hyperlink).trim();
+  const qIdx=s.indexOf('?'); if(qIdx===-1) return '';
+  const aIdx=s.indexOf('&',qIdx+1);
+  const segment=aIdx!==-1?s.slice(qIdx+1,aIdx):s.slice(qIdx+1);
+  return segment.replace('=',':');
+}
+
+// ── SELECT ALL ────────────────────────────────────────────────────────────
+let _allSelected=false;
+function toggleSelectAll2d(btn){
+  _allSelected=!_allSelected;
+  document.querySelectorAll('#audit2dBody .row-cb:not(:disabled)').forEach(cb=>{cb.checked=_allSelected;});
+  btn.textContent=_allSelected?'☑ Deselect All':'☐ Select All';
+}
+
+// ── FIND IN ACONEX ────────────────────────────────────────────────────────
+function findInAconex(){
+  const cbs=[...document.querySelectorAll('#audit2dBody .row-cb:checked')];
+  if(!cbs.length){showToast('No rows selected.');return;}
+  const ids=cbs.map(cb=>cb.dataset.trackingid).filter(Boolean);
+  if(!ids.length){showToast('Selected rows have no Tracking IDs.');return;}
+  const query=ids.join(' OR ');
+  navigator.clipboard.writeText(query).then(()=>{
+    showToast(`✓ Copied ${ids.length} tracking ID${ids.length>1?'s':''} to clipboard`);
+  }).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=query;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    showToast(`✓ Copied ${ids.length} tracking ID${ids.length>1?'s':''} to clipboard`);
+  });
+}
+
+function showToast(msg){
+  let t=document.getElementById('copyToast');
+  if(!t){t=document.createElement('div');t.id='copyToast';t.className='copy-toast';document.body.appendChild(t);}
+  t.textContent=msg;t.style.opacity='1';
+  clearTimeout(t._timer);t._timer=setTimeout(()=>{t.style.opacity='0';},2800);
+}
+
+function generate2dPDF(){
+  const proj=(document.getElementById('pdfProjectName2d')||{}).value||'';
+  const projName=proj.trim()||'BEP Audit';
+  close2dPdfModal();
+  const date=fmtDateLong(new Date());
+  const g=audit2dAll;
+  const pass=g.filter(r=>r._status==='PASS').length,fail=g.filter(r=>r._status==='FAIL').length;
+  const missR=g.filter(r=>r._status==='MISSING IN REVIZTO').length,missA=g.filter(r=>r._status==='MISSING IN ACONEX').length,total=g.length;
+  const bgMap={'PASS':'background:#dcfce7;color:#166534','FAIL':'background:#fee2e2;color:#991b1b','MISSING IN REVIZTO':'background:#f3e8ff;color:#6b21a8','MISSING IN ACONEX':'background:#fef3c7;color:#92400e'};
+  const TH='padding:4px 7px;font-size:7px;font-weight:bold;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;text-align:left;background:#0f1f3d;white-space:nowrap;';
+  const TD='padding:3px 7px;font-size:8px;border-bottom:1px solid #e2e8f0;white-space:nowrap;';
+  const kpis=[{l:'Total',v:total,c:'#3b82f6'},{l:'Pass',v:pass,c:'#22c55e'},{l:'Fail',v:fail,c:'#ef4444'},{l:'Miss. Revizto',v:missR,c:'#a855f7'},{l:'Miss. Aconex',v:missA,c:'#f59e0b'}];
+  const kpiHtml=kpis.map(k=>`<div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-top:3px solid ${k.c};border-radius:6px;padding:8px 10px;min-width:70px"><div style="font-size:7px;font-weight:bold;text-transform:uppercase;color:#64748b">${k.l}</div><div style="font-size:20px;font-weight:bold;color:${k.c};font-family:monospace">${k.v}</div></div>`).join('');
+  const tblRows=audit2dFiltered.map(r=>{const ac=r._status==='FAIL'?'#991b1b':r._status==='PASS'?'#166534':'#334155';return `<tr><td style="${TD}"><span style="font-size:7px;font-weight:bold;padding:2px 7px;border-radius:10px;${bgMap[r._status]||''}">${r._status}</span></td><td style="${TD}color:#334155">${r.docNo||'—'}</td><td style="${TD}color:#334155;max-width:110px;overflow:hidden;text-overflow:ellipsis">${r.title||'—'}</td><td style="${TD}color:#334155;max-width:110px;overflow:hidden;text-overflow:ellipsis">${r.rvTitle||'—'}</td><td style="${TD}">${r.revDate||'—'}</td><td style="${TD}">${r.status||'—'}</td><td style="${TD}">${r.disc||'—'}</td><td style="${TD}color:${ac}">${r.rev||'—'}</td><td style="${TD}color:${ac}">${r.rvRev||'—'}</td></tr>`;}).join('');
+  const logoHtml=`<img src="sarah-white-logo.png" style="height:44px;max-width:160px;object-fit:contain" onerror="this.style.display='none'">`;
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>2D Audit — ${projName}</title><style>@page{size:A3 landscape;margin:12mm}body{font-family:Arial,sans-serif;color:#1e293b;background:white;margin:0;font-size:10px}table{border-collapse:collapse;width:100%}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:2px solid #1e3a6e;margin-bottom:12px"><div><div style="font-size:18px;font-weight:bold;color:#0a1f4e">${projName}</div><div style="font-size:9px;color:#64748b">2D Audit | Aconex vs Revizto · ${date}</div></div>${logoHtml}</div><div style="display:flex;gap:8px;flex:1;flex-wrap:wrap;align-content:flex-start;margin-bottom:10px">${kpiHtml}</div><table><thead><tr><th style="${TH}">Status</th><th style="${TH}">Doc No</th><th style="${TH}">Aconex Title</th><th style="${TH}">Revizto Title</th><th style="${TH}">Rev Date</th><th style="${TH}">Aconex Status</th><th style="${TH}">Discipline</th><th style="${TH}">Aconex Rev</th><th style="${TH}">Revizto Rev</th></tr></thead><tbody>${tblRows}</tbody></table><div style="margin-top:10px;font-size:8px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:5px">Generated by BEP Audit Dashboard · ${date}</div></body></html>`;
+  const win=window.open('','_blank'); win.document.write(html); win.document.close();
+  win.onload=()=>{ win.focus(); win.print(); };
+}
+
+
+</script>
+</body>
+</html>

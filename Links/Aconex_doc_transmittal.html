@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Transmittal Matrix | Aconex</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: Arial, sans-serif; background: #001B49; color: #f9fafb; min-height: 100vh; font-size: 14px; }
@@ -161,7 +161,16 @@ body { font-family: Arial, sans-serif; background: #001B49; color: #f9fafb; min-
 .tracking-id-cell { font-family: 'Courier New', monospace; font-size: 10px; color: #60a5fa; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
 .tracking-id-cell.missing { color: #374151; font-style: italic; }
 
-/* Scrollbar */
+/* ── Export Modal ── */
+.export-box { background: #0a1f4e; border: 1px solid #1e3a6e; border-radius: 12px; width: 580px; max-width: 96vw; max-height: 82vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+.export-org-list { overflow-y: auto; flex: 1; padding: 8px 0; }
+.export-org-row { display: flex; align-items: center; gap: 10px; padding: 8px 20px; cursor: pointer; transition: background 0.1s; border-bottom: 1px solid rgba(30,58,110,0.25); }
+.export-org-row:hover { background: rgba(59,130,246,0.05); }
+.export-org-cb { width: 15px; height: 15px; accent-color: #3b82f6; cursor: pointer; flex-shrink: 0; }
+.export-org-name { flex: 1; font-size: 12px; color: #e2e8f0; }
+.export-org-count { font-size: 11px; font-family: 'Courier New', monospace; color: #ef4444; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+.export-note { font-size: 10px; color: #4b6a9e; padding: 10px 20px; border-top: 1px solid rgba(30,58,110,0.3); line-height: 1.6; }
+
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #1e3a6e; border-radius: 3px; }
@@ -385,6 +394,7 @@ body { font-family: Arial, sans-serif; background: #001B49; color: #f9fafb; min-
             <span id="sarahWarn" style="display:none;font-size:10px;color:#f59e0b;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);padding:3px 10px;border-radius:6px;">⚠ "Sarah Constructions" not found</span>
             <span id="uncatWarn" style="display:none;font-size:10px;color:#a855f7;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.2);padding:3px 10px;border-radius:6px;">⚠ Some orgs uncategorised</span>
             <button class="btn-sm" onclick="exportCSV()">⬇ CSV</button>
+            <button class="btn-sm" style="background:#22c55e;" onclick="openExportModal()">⬇ Export Excel</button>
           </div>
         </div>
         <div class="wf-filter-bar" id="txFilterBar">
@@ -450,6 +460,37 @@ body { font-family: Arial, sans-serif; background: #001B49; color: #f9fafb; min-
     </div>
 
   </main>
+</div>
+
+<!-- ══ EXPORT MODAL ══ -->
+<div class="modal-overlay" id="exportModal">
+  <div class="export-box">
+    <div class="config-head">
+      <div>
+        <div style="font-size:14px;font-weight:bold;color:#f9fafb;">⬇ Export Missing Documents — Excel</div>
+        <div style="font-size:11px;color:#64748b;margin-top:3px;">Select organisations to include. One sheet per organisation.</div>
+      </div>
+      <button class="modal-close" onclick="closeExportModal()">✕</button>
+    </div>
+    <div class="config-toolbar" style="gap:8px;">
+      <button class="btn-bulk bc" onclick="toggleExportAll(true)">☑ Select All</button>
+      <button class="btn-bulk"   onclick="toggleExportAll(false)">☐ Deselect All</button>
+      <span id="exportSelCount" style="font-size:11px;color:#64748b;margin-left:4px;"></span>
+    </div>
+    <div class="export-org-list" id="exportOrgList"></div>
+    <div class="export-note">
+      📋 Each sheet contains the 7 key columns only — Document No, Title, Rev, Status, Document Category, Discipline, Doc Type.<br>
+      🔍 The <strong style="color:#f59e0b;">Aconex Super Search</strong> string (row 3 of each sheet) is pre-built from all tracking IDs — copy and paste directly into Aconex Super Search.<br>
+      📑 A <strong style="color:#60a5fa;">Summary</strong> sheet is included at the front with doc counts and one-click links to each org sheet.
+    </div>
+    <div class="config-foot">
+      <div style="font-size:11px;color:#64748b;" id="exportFootInfo"></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-sm" style="background:transparent;border:1px solid #1e3a6e;color:#94a3b8;" onclick="closeExportModal()">Cancel</button>
+        <button class="btn-sm" style="background:#22c55e;color:#fff;" onclick="exportMissingDocsXlsx()">⬇ Export Excel</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ══ CONFIGURE ORG MODAL ══ -->
@@ -577,6 +618,8 @@ let visibleOrgs = [];
 let regAllRows = [], regFiltered = [], regHeaders = [], regColMap = {};
 // trackingMap[docNo] = trackingId  (built from Hyperlink column)
 let trackingMap = {};
+// regRevDateMap[docNo] = revision date string (built from ALL register rows, not just WF_TYPES)
+let regRevDateMap = {};
 
 // ── Modal state ──
 let modalRows = [], modalHeaders = [], modalType = 'tx';
@@ -807,9 +850,12 @@ function loadRegister(buffer, fname) {
       if (foundUrl) urlByRow[r] = foundUrl;
     }
 
-    // ── Build trackingMap: docNo (uppercase) → trackingId ──
-    // Scan ALL data rows (not just WF_TYPES) so the map is complete
-    trackingMap = {};
+    // ── Build trackingMap + regRevDateMap: scan ALL rows (not just WF_TYPES) ──
+    const revDateColIdx = regHeaders.findIndex(h =>
+      h.toLowerCase().includes('revision date') || h.toLowerCase().includes('rev date')
+    );
+    trackingMap  = {};
+    regRevDateMap = {};
     for (let i = dataStart; i < raw.length; i++) {
       const row   = raw[i];
       const docNo = dnColIdx >= 0 ? String(row[dnColIdx] || '').trim() : '';
@@ -819,6 +865,12 @@ function loadRegister(buffer, fname) {
       const url = urlByRow[i] || (hlColIdx >= 0 ? String(row[hlColIdx] || '').trim() : '');
       const tid = extractTrackingId(url);
       if (tid) trackingMap[docNo.toUpperCase()] = tid;
+
+      // Revision date — stored for all rows so export can look up any document
+      if (revDateColIdx >= 0) {
+        const rd = String(row[revDateColIdx] || '').trim();
+        if (rd) regRevDateMap[docNo.toUpperCase()] = rd;
+      }
     }
 
     // ── Parse WF_TYPES rows for display ──
@@ -1464,7 +1516,207 @@ function filterOrgs(q) {
 function clearSearch() { document.getElementById('orgSearch').value=''; filterOrgs(''); }
 
 // ══════════════════════════════════════════════
-//  EXPORT
+//  EXPORT MISSING DOCS — EXCEL
+// ══════════════════════════════════════════════
+function openExportModal() {
+  const discs = getActiveDisciplines();
+  const exportableOrgs = visibleOrgs.filter(o => {
+    if (o === sarahName) return false;
+    return discs.some(d => getMissing(o, d).length > 0);
+  });
+  if (!exportableOrgs.length) { alert('No missing documents found for any visible organisation.'); return; }
+
+  document.getElementById('exportOrgList').innerHTML = exportableOrgs.map(org => {
+    const total = discs.reduce((s, d) => s + getMissing(org, d).length, 0);
+    const cat   = orgCategory[org] || '';
+    return `<label class="export-org-row">
+      <input type="checkbox" class="export-org-cb" value="${escAttr(org)}" checked onchange="updateExportCount()">
+      <span class="export-org-name">${escHtml(org)}${cat ? ` <span style="font-size:9px;color:#64748b;">(${cat})</span>` : ''}</span>
+      <span class="export-org-count">${total} missing</span>
+    </label>`;
+  }).join('');
+
+  updateExportCount();
+  document.getElementById('exportModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeExportModal() {
+  document.getElementById('exportModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function toggleExportAll(check) {
+  document.querySelectorAll('.export-org-cb').forEach(cb => { cb.checked = check; });
+  updateExportCount();
+}
+function updateExportCount() {
+  const checked = document.querySelectorAll('.export-org-cb:checked').length;
+  const total   = document.querySelectorAll('.export-org-cb').length;
+  document.getElementById('exportSelCount').textContent = `${checked} of ${total} selected`;
+  const discs = getActiveDisciplines();
+  const totalMissing = [...document.querySelectorAll('.export-org-cb:checked')]
+    .reduce((s, cb) => s + discs.reduce((ss, d) => ss + getMissing(cb.value, d).length, 0), 0);
+  document.getElementById('exportFootInfo').textContent =
+    `${checked} sheet${checked!==1?'s':''} · ${totalMissing} total missing document${totalMissing!==1?'s':''}`;
+}
+
+function exportMissingDocsXlsx() {
+  const selected = [...document.querySelectorAll('.export-org-cb:checked')].map(cb => cb.value);
+  if (!selected.length) { alert('Please select at least one organisation.'); return; }
+
+  const wb    = XLSX.utils.book_new();
+  const discs = getActiveDisciplines();
+
+  // ── Column mapping: tx-sourced columns matched against txHeaders ──
+  // Revision Date is sourced from the Document Register, not txHeaders — handled separately below.
+  const WANT_COLS = [
+    { label: 'Document No',       match: h => h === 'Document No' || h.toLowerCase().includes('document no') },
+    { label: 'Title',             match: h => h.toLowerCase() === 'title' },
+    { label: 'Rev',               match: h => ['rev','revision'].includes(h.toLowerCase()) },
+    { label: 'Status',            match: h => h.toLowerCase() === 'status' },
+    { label: 'Document Category', match: h => h.toLowerCase() === 'document category' || (h.toLowerCase().includes('category') && !h.toLowerCase().includes('sub')) },
+    { label: 'Discipline',        match: h => h.toLowerCase() === 'discipline' },
+    { label: 'Doc Type',          match: h => ['doc type','document type','type'].includes(h.toLowerCase()) },
+  ];
+  // Resolve each wanted col against actual txHeaders (skip cols not present in file)
+  const resolvedCols = WANT_COLS.map(wc => {
+    const idx = txHeaders.findIndex(wc.match);
+    return { label: wc.label, txHeader: idx >= 0 ? txHeaders[idx] : null, idx };
+  }).filter(c => c.idx >= 0);
+
+  // ── Revision Date lookup from Document Register ──
+  // regRevDateMap is built from ALL register rows during loadRegister (not just WF_TYPES),
+  // so it covers regular drawings, etc. Falls back to blank if register not loaded.
+  const revDateMap = regRevDateMap;
+
+  // Insert 'Revision Date' into colLabels right after 'Rev'
+  const revIdx = resolvedCols.findIndex(c => c.label === 'Rev');
+  const rdInsert = revIdx >= 0 ? revIdx + 1 : resolvedCols.length;
+  const colLabels = [
+    ...resolvedCols.slice(0, rdInsert).map(c => c.label),
+    'Revision Date',
+    ...resolvedCols.slice(rdInsert).map(c => c.label),
+  ];
+
+  // ── First pass: gather all org data so we have sheet names for the summary ──
+  const orgData = [];
+  selected.forEach(org => {
+    const rows = [];
+    discs.forEach(disc => {
+      getMissing(org, disc).forEach(key => {
+        const srcRow = (sarahRows.c2s[disc] || []).find(r => r._key === key);
+        if (!srcRow) return;
+        const tid     = trackingMap[key.toUpperCase()] || '';
+        const revDate = revDateMap[key.toUpperCase()] || '';
+        // Build cells array with Revision Date spliced in at rdInsert position
+        const baseCells = resolvedCols.map(c => srcRow._named[c.txHeader] || '');
+        baseCells.splice(rdInsert, 0, revDate);
+        rows.push({ cells: baseCells, tid });
+      });
+    });
+    if (!rows.length) return;
+    // Sheet name: strip Excel-illegal chars \/? *[]: — max 31 chars
+    const sheetName = org.replace(/[\\\/\?\*\[\]:]/g, '').slice(0, 31).trim()
+                      || `Org_${orgData.length + 1}`;
+    orgData.push({ org, rows, sheetName });
+  });
+
+  if (!orgData.length) { alert('No data to export.'); return; }
+
+  // ── Summary sheet ──
+  const summaryAoa = [
+    ['Missing Documents Export', '', `Exported: ${new Date().toLocaleDateString('en-AU')}`],
+    [],
+    ['Organisation', 'Missing Documents', 'Navigate to Sheet'],
+    ...orgData.map(({ org, rows }) => [org, rows.length, '']), // col C filled below as formula cells
+  ];
+  const summaryWs = XLSX.utils.aoa_to_sheet(summaryAoa);
+
+  // SheetJS AOA does NOT auto-convert "=..." strings to formula cells.
+  // Set each Navigate cell explicitly: { t:'s', f:'HYPERLINK(...)' } (no leading =)
+  // v:'View →' provides the cached display value so the cell is not blank before recalc
+  orgData.forEach(({ sheetName }, i) => {
+    const cellAddr = XLSX.utils.encode_cell({ r: 3 + i, c: 2 }); // row 4+ in Excel, col C
+    summaryWs[cellAddr] = { t: 's', f: `HYPERLINK("#'${sheetName}'!A1","View →")`, v: 'View →' };
+  });
+
+  // Bright blue bold on header row (row index 2 = Excel row 3)
+  const sumHdrStyle = { font: { bold: true, color: { rgb: '0070C0' } } };
+  [0, 1, 2].forEach(ci => {
+    const addr = XLSX.utils.encode_cell({ r: 2, c: ci });
+    if (summaryWs[addr]) summaryWs[addr].s = sumHdrStyle;
+  });
+
+  summaryWs['!cols'] = [{ wch: 50 }, { wch: 20 }, { wch: 20 }];
+  XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+
+  // ── One sheet per org ──
+  orgData.forEach(({ org, rows, sheetName }) => {
+    // Pre-build Aconex search string from all tracking IDs in this sheet
+    const tids      = rows.map(r => r.tid).filter(Boolean);
+    const searchStr = tids.length
+      ? tids.join(' OR ')
+      : '— No Tracking IDs available for these documents —';
+
+    const aoa = [
+      [`${org} — Missing Documents`, '', `Exported: ${new Date().toLocaleDateString('en-AU')}`],
+      [],
+      ['👆 COPY CELL B3 → Paste into Aconex Super Search', searchStr],
+      [],
+      colLabels,
+      ...rows.map(r => r.cells),
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // A2: hyperlink back to Summary sheet
+    const a2addr = XLSX.utils.encode_cell({ r: 1, c: 0 });
+    ws[a2addr] = {
+      t: 's',
+      f: `HYPERLINK("#Summary!A1","← Back to Summary")`,
+      v: '← Back to Summary',
+      s: { font: { bold: true, color: { rgb: '0070C0' }, underline: true } },
+    };
+
+    // Style: B3 (r=2, c=1) — yellow fill + bold so it's obviously the cell to copy
+    const b3 = XLSX.utils.encode_cell({ r: 2, c: 1 });
+    if (ws[b3]) ws[b3].s = {
+      font: { bold: true },
+      fill: { fgColor: { rgb: 'FFF2CC' }, patternType: 'solid' },
+    };
+    // Style: A3 instruction label — grey italic
+    const a3 = XLSX.utils.encode_cell({ r: 2, c: 0 });
+    if (ws[a3]) ws[a3].s = { font: { bold: true, color: { rgb: '595959' } } };
+
+    // Style: column header row (row index 4 = Excel row 5) — bright blue bold
+    const colHdrStyle = { font: { bold: true, color: { rgb: '0070C0' } } };
+    colLabels.forEach((_, ci) => {
+      const addr = XLSX.utils.encode_cell({ r: 4, c: ci });
+      if (ws[addr]) ws[addr].s = colHdrStyle;
+    });
+    ws['!cols'] = colLabels.map((lbl, i) => {
+      if (i === 0) return { wch: 48 }; // Document No
+      if (i === 1) return { wch: 50 }; // Title — widest
+      return { wch: Math.min(Math.max(lbl.length + 6, 14), 30) };
+    });
+
+    // Merge B3:XFD3 so the search string spans the full row width
+    ws['!merges'] = [{ s: { r: 2, c: 1 }, e: { r: 2, c: 16383 } }];
+
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  });
+
+  const buf  = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = `Missing_Docs_${today()}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  closeExportModal();
+}
+
+// ══════════════════════════════════════════════
+//  EXPORT CSV
 // ══════════════════════════════════════════════
 function exportCSV() {
   const discs=getActiveDisciplines(); if(!discs.length) return;
@@ -1532,9 +1784,10 @@ function escAttr(s) { return String(s||'').replace(/'/g,"\\'").replace(/"/g,'&qu
 function dlBlob(c,n,t){ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:t}));a.download=n;a.click();URL.revokeObjectURL(a.href); }
 
 // Modal close
+document.getElementById('exportModal').addEventListener('click',  e=>{ if(e.target===document.getElementById('exportModal')) closeExportModal(); });
 document.getElementById('configModal').addEventListener('click', e=>{ if(e.target===document.getElementById('configModal'))closeConfigModal(); });
 document.getElementById('detailModal').addEventListener('click', e=>{ if(e.target===document.getElementById('detailModal'))closeDetailModal(); });
-document.addEventListener('keydown', e=>{ if(e.key==='Escape'){closeDetailModal();closeConfigModal();} });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){closeDetailModal();closeConfigModal();closeExportModal();} });
 </script>
 </body>
 </html>

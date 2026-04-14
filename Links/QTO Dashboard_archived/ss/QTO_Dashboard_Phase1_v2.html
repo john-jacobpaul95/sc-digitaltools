@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>QTO Dashboard | Revizto Selection Inspector</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+<style>
+/* ── BASE ─────────────────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; background: #001B49; color: #f9fafb; min-height: 100vh; font-size: 14px; }
+
+/* ── TOPBAR ───────────────────────────────────────────────────── */
+.topbar { background: #0a1f4e; border-bottom: 2px solid #1e3a6e; height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; position: sticky; top: 0; z-index: 200; gap: 12px; }
+.topbar-left { width: 200px; }
+.topbar-center { display: flex; gap: 4px; background: rgba(0,0,0,0.35); border: 1px solid #3b82f6; border-radius: 10px; padding: 5px; box-shadow: 0 0 0 1px rgba(59,130,246,0.15), 0 4px 16px rgba(0,0,0,0.4); }
+.top-nav { padding: 7px 18px; border-radius: 7px; font-size: 12px; font-weight: bold; color: #94a3b8; cursor: pointer; transition: all 0.18s; border: none; background: transparent; white-space: nowrap; }
+.top-nav:hover { color: #f9fafb; background: rgba(255,255,255,0.06); }
+.top-nav.active { background: linear-gradient(135deg,#3b82f6,#1d4ed8); color: #fff; box-shadow: 0 2px 8px rgba(59,130,246,0.5); }
+.topbar-right { width: 200px; display: flex; justify-content: flex-end; align-items: center; }
+
+/* ── SIDEBAR ──────────────────────────────────────────────────── */
+.sidebar { width: 262px; min-width: 262px; background: #0a1f4e; border-right: 1px solid #1e3a6e; padding: 20px 14px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
+.section-header { font-size: 10px; font-weight: bold; letter-spacing: 0.12em; text-transform: uppercase; color: #4b6a9e; padding: 14px 8px 6px 8px; }
+.folder-box { background: #111827; border: 1px solid #1e3a6e; border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: border-color 0.2s; position: relative; }
+.folder-box:hover { border-color: #3b82f6; }
+.folder-box.loaded { border-color: #22c55e; }
+.folder-box.disabled { opacity: 0.38; cursor: not-allowed; pointer-events: none; }
+.folder-box input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.folder-icon { font-size: 18px; flex-shrink: 0; }
+.folder-text { flex: 1; min-width: 0; }
+.folder-label { font-size: 12px; font-weight: bold; color: #cbd5e1; }
+.folder-sub { font-size: 10px; color: #64748b; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.folder-sub.ok { color: #22c55e; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: #374151; }
+.status-dot.ok  { background: #22c55e; }
+.status-dot.err { background: #ef4444; }
+.s-divider { border: none; border-top: 1px solid #1e3a6e; margin: 4px 0; }
+
+/* ── CONFIGURE PROJECT BUTTON ─────────────────────────────────── */
+.btn-configure { background: linear-gradient(135deg, #1e3a6e, #0f2a5a); border: 1px solid #3b82f6; color: #93c5fd; padding: 9px 14px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer; font-family: Arial, sans-serif; width: 100%; text-align: left; display: flex; align-items: center; gap: 8px; transition: all 0.2s; margin-top: 4px; }
+.btn-configure:hover { background: linear-gradient(135deg, #2a4a8e, #193580); border-color: #60a5fa; box-shadow: 0 0 12px rgba(59,130,246,0.25); }
+.btn-configure .cfg-badge { margin-left: auto; background: rgba(59,130,246,0.2); color: #60a5fa; font-size: 10px; padding: 2px 8px; border-radius: 10px; font-family: 'Courier New', monospace; }
+
+/* ── FILTERS ──────────────────────────────────────────────────── */
+.filter-group { display: flex; flex-direction: column; gap: 8px; padding: 0 2px; }
+.filter-label { font-size: 11px; color: #64748b; }
+.chip-scroll { max-height: 90px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 4px; background: #111827; border: 1px solid #1e3a6e; border-radius: 7px; padding: 6px; }
+.chip { font-size: 10px; padding: 3px 9px; border-radius: 12px; border: 1px solid #1e3a6e; background: #111827; color: #94a3b8; cursor: pointer; transition: all 0.12s; user-select: none; white-space: nowrap; }
+.chip:hover { border-color: #3b82f6; color: #93c5fd; }
+.chip.active { background: #1e3a6e; border-color: #3b82f6; color: #93c5fd; font-weight: bold; }
+.btn-clear { background: transparent; border: 1px solid #1e3a6e; color: #94a3b8; padding: 6px 12px; border-radius: 7px; font-size: 11px; cursor: pointer; width: 100%; margin-top: 2px; font-family: Arial, sans-serif; transition: all 0.15s; }
+.btn-clear:hover { border-color: #374151; background: #111827; color: #f9fafb; }
+
+/* ── MAIN ─────────────────────────────────────────────────────── */
+.main { flex: 1; padding: 24px 28px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; min-width: 0; }
+.idle-screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 60px 20px; text-align: center; }
+.idle-icon { font-size: 48px; opacity: 0.2; }
+.idle-title { font-size: 18px; font-weight: bold; color: #4b6a9e; }
+.idle-sub { font-size: 13px; color: #374151; max-width: 400px; line-height: 1.6; }
+.idle-steps { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; max-width: 380px; }
+.idle-step { display: flex; align-items: center; gap: 12px; background: #0a1f4e; border: 1px solid #1e3a6e; border-radius: 8px; padding: 10px 14px; text-align: left; }
+.idle-step-num { width: 24px; height: 24px; border-radius: 50%; background: #1e3a6e; color: #60a5fa; font-size: 11px; font-weight: bold; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.idle-step-text { font-size: 12px; color: #64748b; }
+.idle-step-text strong { color: #93c5fd; }
+
+/* ── KPI ROW ──────────────────────────────────────────────────── */
+.kpi-row { display: grid; grid-template-columns: repeat(5,1fr); gap: 12px; }
+.kpi { background: #1e293b; border: 1px solid #1e3a6e; border-radius: 10px; padding: 16px 18px; border-top: 3px solid transparent; }
+.kpi.k-blue   { border-top-color: #3b82f6; }
+.kpi.k-green  { border-top-color: #22c55e; }
+.kpi.k-red    { border-top-color: #ef4444; }
+.kpi.k-purple { border-top-color: #a855f7; }
+.kpi.k-amber  { border-top-color: #f59e0b; }
+.kpi.k-teal   { border-top-color: #14b8a6; }
+.kpi-label { font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; }
+.kpi-val   { font-size: 30px; font-weight: bold; font-family: 'Courier New', monospace; margin: 5px 0 2px; line-height: 1; }
+.kpi.k-blue   .kpi-val { color: #3b82f6; }
+.kpi.k-green  .kpi-val { color: #22c55e; }
+.kpi.k-red    .kpi-val { color: #ef4444; }
+.kpi.k-purple .kpi-val { color: #a855f7; }
+.kpi.k-amber  .kpi-val { color: #f59e0b; }
+.kpi.k-teal   .kpi-val { color: #14b8a6; }
+.kpi-sub { font-size: 11px; color: #4b6a9e; }
+
+/* ── PANELS ───────────────────────────────────────────────────── */
+.panel { background: #1e293b; border: 1px solid #1e3a6e; border-radius: 10px; overflow: hidden; }
+.panel-head { background: #0f1f3d; border-bottom: 1px solid #1e3a6e; padding: 13px 18px; display: flex; align-items: center; justify-content: space-between; }
+.panel-title { font-size: 13px; font-weight: bold; color: #cbd5e1; }
+.panel-actions { display: flex; gap: 8px; }
+.btn-sm { background: #374151; color: #f9fafb; border: none; padding: 5px 13px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; font-family: Arial, sans-serif; transition: background 0.15s; }
+.btn-sm:hover { background: #4b5563; }
+.placeholder-panel { background: #1e293b; border: 1px dashed #1e3a6e; border-radius: 10px; padding: 36px 20px; text-align: center; color: #4b6a9e; }
+.placeholder-panel .ph-icon { font-size: 28px; margin-bottom: 10px; opacity: 0.4; }
+.placeholder-panel .ph-title { font-size: 13px; font-weight: bold; color: #64748b; }
+.placeholder-panel .ph-sub { font-size: 11px; margin-top: 4px; }
+.two-col { display: grid; grid-template-columns: 300px 1fr; gap: 14px; align-items: start; }
+
+/* ── TABLE ────────────────────────────────────────────────────── */
+.tbl-wrap { overflow-x: auto; max-height: calc(100vh - 360px); overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead th { background: #0f1f3d; padding: 9px 13px; text-align: left; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; border-bottom: 1px solid #1e3a6e; white-space: nowrap; position: sticky; top: 0; z-index: 1; }
+tbody tr { border-bottom: 1px solid rgba(30,58,110,0.4); transition: background 0.1s; }
+tbody tr:hover { background: rgba(59,130,246,0.05); }
+tbody td { padding: 8px 13px; color: #e2e8f0; font-family: 'Courier New', monospace; font-size: 11px; white-space: nowrap; }
+tbody td.str { font-family: Arial, sans-serif; font-size: 12px; }
+.pill { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; font-family: Arial, sans-serif; }
+.p-arch   { background: rgba(59,130,246,0.12);  color: #60a5fa; }
+.p-mech   { background: rgba(245,158,11,0.12);  color: #f59e0b; }
+.p-struc  { background: rgba(239,68,68,0.12);   color: #ef4444; }
+.p-elec   { background: rgba(168,85,247,0.12);  color: #a855f7; }
+.p-fire   { background: rgba(239,68,68,0.12);   color: #fca5a5; }
+.p-hyd    { background: rgba(20,184,166,0.12);  color: #14b8a6; }
+.p-civil  { background: rgba(34,197,94,0.12);   color: #22c55e; }
+.p-other  { background: rgba(100,116,139,0.12); color: #94a3b8; }
+.empty { padding: 48px 20px; text-align: center; color: #4b6a9e; }
+.empty-icon { font-size: 28px; margin-bottom: 8px; opacity: 0.5; }
+.empty-title { font-size: 13px; font-weight: bold; color: #64748b; margin-bottom: 4px; }
+.empty-sub { font-size: 11px; }
+
+/* ── SCROLLBAR ────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1e3a6e; border-radius: 3px; }
+
+/* ── CONFIGURE PROJECT MODAL ──────────────────────────────────── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 500; display: none; align-items: flex-start; justify-content: center; padding: 32px 20px; overflow-y: auto; backdrop-filter: blur(2px); }
+.modal-overlay.open { display: flex; }
+.modal-box { background: #0a1f4e; border: 1px solid #1e3a6e; border-radius: 14px; width: 100%; max-width: 1120px; display: flex; flex-direction: column; box-shadow: 0 24px 80px rgba(0,0,0,0.6); }
+.modal-header { padding: 20px 26px; border-bottom: 1px solid #1e3a6e; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.modal-header-left { display: flex; flex-direction: column; gap: 3px; }
+.modal-title { font-size: 15px; font-weight: bold; color: #f9fafb; }
+.modal-subtitle { font-size: 11px; color: #4b6a9e; }
+.modal-header-right { display: flex; align-items: center; gap: 10px; }
+.modal-body { padding: 20px 26px; overflow-y: auto; max-height: 62vh; }
+.modal-footer { padding: 16px 26px; border-top: 1px solid #1e3a6e; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.modal-footer-left { display: flex; gap: 10px; flex: 1; }
+.modal-footer-right { display: flex; gap: 10px; }
+
+/* ── CONFIGURE TABLE ──────────────────────────────────────────── */
+.cfg-table-wrap { overflow-x: auto; border: 1px solid #1e3a6e; border-radius: 8px; }
+.cfg-table { width: 100%; border-collapse: collapse; min-width: 860px; }
+.cfg-table thead th { background: #0f1f3d; padding: 10px 10px; text-align: left; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; border-bottom: 1px solid #1e3a6e; white-space: nowrap; }
+.cfg-table thead th .th-note { font-size: 9px; color: #374151; font-weight: normal; text-transform: none; letter-spacing: 0; display: block; margin-top: 2px; }
+.cfg-table tbody tr { border-bottom: 1px solid rgba(30,58,110,0.4); }
+.cfg-table tbody tr:hover { background: rgba(59,130,246,0.04); }
+.cfg-table tbody td { padding: 6px 8px; vertical-align: middle; }
+.cfg-table tbody tr:last-child { border-bottom: none; }
+.cfg-select { background: #111827; border: 1px solid #1e3a6e; border-radius: 6px; color: #f9fafb; padding: 6px 8px; font-size: 11px; font-family: Arial, sans-serif; width: 100%; outline: none; cursor: pointer; transition: border-color 0.15s; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234b6a9e'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; padding-right: 24px; }
+.cfg-select:focus { border-color: #3b82f6; }
+.cfg-select:disabled { opacity: 0.35; cursor: not-allowed; }
+.cfg-select option { background: #111827; }
+.cfg-row-num { font-size: 10px; color: #374151; font-family: 'Courier New', monospace; text-align: center; padding: 0 8px !important; width: 32px; }
+
+/* ── CUSTOM MULTI-SELECT ──────────────────────────────────────── */
+.ms-trigger {
+  background: #111827; border: 1px solid #1e3a6e; border-radius: 6px;
+  color: #f9fafb; padding: 4px 7px; font-size: 11px; font-family: Arial, sans-serif;
+  width: 100%; cursor: pointer; min-height: 30px; display: flex; flex-wrap: wrap;
+  gap: 3px; align-items: center; transition: border-color 0.15s; user-select: none;
+  position: relative;
+}
+.ms-trigger:hover { border-color: #3b82f6; }
+.ms-trigger.ms-open { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+.ms-trigger.ms-disabled { opacity: 0.38; cursor: not-allowed; pointer-events: none; }
+.ms-placeholder { color: #4b6a9e; font-size: 10px; }
+.ms-tag {
+  background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.35);
+  color: #60a5fa; font-size: 9px; padding: 2px 7px; border-radius: 10px;
+  white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0;
+}
+.ms-tag.ms-tag-green {
+  background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.3); color: #22c55e;
+}
+/* Portal dropdown injected into body */
+.ms-dd-portal {
+  font-family: Arial, sans-serif; font-size: 11px;
+  background: #111827; border: 1px solid #3b82f6; border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.65); overflow: hidden;
+}
+.ms-dd-search-wrap { padding: 7px 8px; border-bottom: 1px solid #1e3a6e; }
+.ms-dd-search { width: 100%; background: #0a1f4e; border: 1px solid #1e3a6e; border-radius: 5px; color: #f9fafb; padding: 5px 8px; font-size: 11px; outline: none; font-family: Arial, sans-serif; }
+.ms-dd-search:focus { border-color: #3b82f6; }
+.ms-dd-list { max-height: 170px; overflow-y: auto; }
+.ms-dd-empty { padding: 14px; text-align: center; font-size: 10px; color: #4b6a9e; }
+.ms-dd-item {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+  cursor: pointer; color: #e2e8f0; transition: background 0.1s;
+}
+.ms-dd-item:hover { background: rgba(59,130,246,0.1); }
+.ms-dd-item.ms-checked { background: rgba(59,130,246,0.07); }
+.ms-dd-cb { font-size: 14px; flex-shrink: 0; color: #374151; line-height: 1; }
+.ms-dd-item.ms-checked .ms-dd-cb { color: #3b82f6; }
+.ms-dd-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.ms-dd-used {
+  display: flex; align-items: center; gap: 3px;
+  font-size: 9px; color: #22c55e; flex-shrink: 0; margin-left: auto;
+  background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.25);
+  padding: 1px 5px; border-radius: 8px;
+}
+.ms-dd-footer {
+  padding: 6px 10px; border-top: 1px solid #1e3a6e;
+  display: flex; justify-content: space-between; align-items: center;
+  background: #0d1a35;
+}
+.ms-dd-count { font-size: 9px; color: #4b6a9e; }
+.ms-dd-legend { font-size: 9px; color: #4b6a9e; display: flex; align-items: center; gap: 4px; }
+.ms-dd-legend-dot { color: #22c55e; font-size: 10px; }
+.ms-dd-clear { font-size: 9px; color: #ef4444; cursor: pointer; }
+.ms-dd-clear:hover { text-decoration: underline; }
+
+/* ── MODAL BUTTONS ────────────────────────────────────────────── */
+.btn-primary { background: #3b82f6; border: none; color: #fff; padding: 8px 18px; border-radius: 7px; font-size: 12px; font-weight: bold; cursor: pointer; font-family: Arial, sans-serif; transition: background 0.15s; display: flex; align-items: center; gap: 6px; }
+.btn-primary:hover { background: #2563eb; }
+.btn-secondary { background: transparent; border: 1px solid #1e3a6e; color: #94a3b8; padding: 8px 16px; border-radius: 7px; font-size: 12px; cursor: pointer; font-family: Arial, sans-serif; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
+.btn-secondary:hover { border-color: #3b82f6; color: #93c5fd; }
+.btn-add-row { background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.25); color: #22c55e; padding: 8px 16px; border-radius: 7px; font-size: 12px; font-weight: bold; cursor: pointer; font-family: Arial, sans-serif; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
+.btn-add-row:hover { background: rgba(34,197,94,0.16); border-color: #22c55e; }
+.btn-del { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); color: #ef4444; padding: 4px 9px; border-radius: 5px; font-size: 11px; cursor: pointer; font-family: Arial, sans-serif; transition: all 0.15s; }
+.btn-del:hover { background: rgba(239,68,68,0.18); border-color: #ef4444; }
+.btn-close { background: transparent; border: 1px solid #1e3a6e; color: #64748b; width: 30px; height: 30px; border-radius: 6px; font-size: 14px; cursor: pointer; font-family: Arial, sans-serif; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.btn-close:hover { border-color: #ef4444; color: #ef4444; }
+.btn-save-settings { background: linear-gradient(135deg,#22c55e,#16a34a); border: none; color: #fff; padding: 8px 18px; border-radius: 7px; font-size: 12px; font-weight: bold; cursor: pointer; font-family: Arial, sans-serif; transition: all 0.15s; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(34,197,94,0.3); }
+.btn-save-settings:hover { background: linear-gradient(135deg,#16a34a,#15803d); }
+
+/* ── EMPTY CONFIG STATE ───────────────────────────────────────── */
+.cfg-empty { padding: 40px 20px; text-align: center; color: #374151; }
+.cfg-empty-icon { font-size: 32px; margin-bottom: 10px; opacity: 0.4; }
+.cfg-empty-title { font-size: 13px; font-weight: bold; color: #4b6a9e; margin-bottom: 6px; }
+.cfg-empty-sub { font-size: 11px; color: #374151; }
+
+/* ── NOTICE BANNER ────────────────────────────────────────────── */
+.notice-banner { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.notice-banner .nb-icon { font-size: 14px; flex-shrink: 0; }
+.notice-banner .nb-text { font-size: 11px; color: #94a3b8; line-height: 1.5; }
+.notice-banner .nb-text strong { color: #f59e0b; }
+
+/* ── TOAST ────────────────────────────────────────────────────── */
+#toast { position: fixed; bottom: 24px; right: 24px; padding: 11px 20px; border-radius: 8px; font-size: 13px; font-weight: bold; z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+#toast.toast-success { background: linear-gradient(135deg,#22c55e,#16a34a); color: #fff; box-shadow: 0 4px 20px rgba(34,197,94,0.4); }
+#toast.toast-info    { background: linear-gradient(135deg,#3b82f6,#1d4ed8); color: #fff; box-shadow: 0 4px 20px rgba(59,130,246,0.4); }
+#toast.toast-warn    { background: linear-gradient(135deg,#f59e0b,#d97706); color: #fff; box-shadow: 0 4px 20px rgba(245,158,11,0.4); }
+
+/* ── DASHBOARD CONTENT ────────────────────────────────────────── */
+#dashContent { display: none; flex-direction: column; gap: 20px; }
+#dashContent.visible { display: flex; }
+.config-summary { background: #0a1f4e; border: 1px solid #1e3a6e; border-radius: 8px; padding: 10px 16px; display: flex; align-items: center; gap: 14px; }
+.cs-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #4b6a9e; font-weight: bold; }
+.cs-chips { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; }
+.cs-chip { font-size: 10px; padding: 2px 10px; border-radius: 12px; border: 1px solid #1e3a6e; background: rgba(59,130,246,0.1); color: #60a5fa; font-weight: bold; }
+.cs-action { font-size: 11px; color: #3b82f6; cursor: pointer; white-space: nowrap; text-decoration: underline; }
+.cs-action:hover { color: #60a5fa; }
+
+/* ── PHASE 2 TAG ──────────────────────────────────────────────── */
+.phase2-tag { font-size: 9px; background: rgba(100,116,139,0.2); color: #64748b; padding: 2px 7px; border-radius: 10px; font-weight: bold; letter-spacing: 0.04em; border: 1px solid #374151; margin-left: auto; }
+
+@media print { .topbar, .sidebar { display: none !important; } }
+</style>
+</head>
+<body>
+
+<!-- ── TOPBAR ──────────────────────────────────────────────────── -->
+<div class="topbar">
+  <div class="topbar-left"></div>
+  <div class="topbar-center" style="border:none;background:transparent;box-shadow:none;">
+    <span style="font-size:15px;font-weight:bold;color:#f9fafb;letter-spacing:0.02em;">📦 QTO Dashboard | Revizto Selection Inspector</span>
+  </div>
+  <div class="topbar-right">
+    <img src="sarah-white-logo.png" alt="Logo" style="height:38px;object-fit:contain;" onerror="this.style.display='none'">
+  </div>
+</div>
+
+<!-- ── PAGE WRAPPER ───────────────────────────────────────────── -->
+<div id="pageQTO" style="display:flex;min-height:calc(100vh - 64px);flex-direction:row;">
+
+  <!-- ── SIDEBAR ──────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="section-header">Data Source</div>
+
+    <!-- Revizto Inspector CSV -->
+    <div class="folder-box" id="reviztoBox">
+      <input type="file" accept=".csv" onchange="handleReviztoCSV(event)">
+      <div class="folder-icon">📊</div>
+      <div class="folder-text">
+        <div class="folder-label">Load Revizto Selection Inspector Export</div>
+        <div class="folder-sub" id="reviztoSub">revizto_inspector.csv</div>
+      </div>
+    </div>
+
+    <!-- PyRevit QTO — Phase 2 (greyed out) -->
+    <div class="folder-box disabled" id="pyrevitBox" style="margin-top:4px;" title="Phase 2 — Coming Soon">
+      <div class="folder-icon">🔩</div>
+      <div class="folder-text">
+        <div class="folder-label" style="display:flex;align-items:center;gap:6px;">
+          Load PyRevit QTO Export
+          <span class="phase2-tag">Phase 2</span>
+        </div>
+        <div class="folder-sub">pyrevit_qto.xlsx</div>
+      </div>
+    </div>
+
+    <!-- Status indicators -->
+    <div style="display:flex;flex-direction:column;gap:4px;padding:4px 8px;margin-top:4px;">
+      <div style="display:flex;align-items:center;gap:7px;">
+        <div class="status-dot" id="dot-revizto"></div>
+        <span style="font-size:10px;color:#64748b;" id="lbl-revizto">Revizto: not loaded</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;">
+        <div class="status-dot" id="dot-pyrevit"></div>
+        <span style="font-size:10px;color:#374151;">PyRevit: Phase 2</span>
+      </div>
+    </div>
+
+    <!-- Configure Project Button -->
+    <button class="btn-configure" onclick="openConfigModal()">
+      ⚙️ Configure Project
+      <span class="cfg-badge" id="cfgBadge">0 rules</span>
+    </button>
+
+    <hr class="s-divider">
+    <div class="section-header">Filters</div>
+
+    <div class="filter-group">
+      <div class="filter-label">Discipline</div>
+      <div class="chip-scroll" id="chipDiscipline">
+        <span style="font-size:10px;color:#374151;">Configure project to populate</span>
+      </div>
+      <button class="btn-clear" onclick="clearFilters()">✕  Clear Filters</button>
+    </div>
+
+    <!-- Version note -->
+    <div style="margin-top:auto;padding:10px 6px 0;font-size:9px;color:#1e3a6e;text-align:center;line-height:1.5;">
+      QTO Dashboard · Phase 1<br>PyRevit integration in Phase 2
+    </div>
+  </aside>
+
+  <!-- ── MAIN CONTENT ────────────────────────────────────────── -->
+  <main class="main">
+
+    <!-- Idle screen -->
+    <div class="idle-screen" id="idleScreen">
+      <div class="idle-icon">📦</div>
+      <div class="idle-title">Quantity Takeoff Dashboard</div>
+      <div class="idle-sub">Export your Revizto Selection Inspector data and configure project mappings to begin.</div>
+      <div class="idle-steps">
+        <div class="idle-step">
+          <div class="idle-step-num">1</div>
+          <div class="idle-step-text">Load <strong>revizto_inspector.csv</strong> from the sidebar data source panel</div>
+        </div>
+        <div class="idle-step">
+          <div class="idle-step-num">2</div>
+          <div class="idle-step-text">Click <strong>⚙️ Configure Project</strong> to map source files to disciplines &amp; categories</div>
+        </div>
+        <div class="idle-step">
+          <div class="idle-step-num">3</div>
+          <div class="idle-step-text">Save your configuration to activate the <strong>QTO Dashboard</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dashboard content (visible after file + config saved) -->
+    <div id="dashContent">
+
+      <!-- Config summary bar -->
+      <div class="config-summary">
+        <span class="cs-label">Active Config</span>
+        <div class="cs-chips" id="configSummaryChips"></div>
+        <span class="cs-action" onclick="openConfigModal()">✎ Edit Config</span>
+      </div>
+
+      <!-- KPI row -->
+      <div class="kpi-row">
+        <div class="kpi k-blue">
+          <div class="kpi-label">Total Elements</div>
+          <div class="kpi-val" id="kpi-total">—</div>
+          <div class="kpi-sub">from inspector export</div>
+        </div>
+        <div class="kpi k-green">
+          <div class="kpi-label">Mapped Elements</div>
+          <div class="kpi-val" id="kpi-mapped">—</div>
+          <div class="kpi-sub">matched by config rules</div>
+        </div>
+        <div class="kpi k-amber">
+          <div class="kpi-label">Unmapped</div>
+          <div class="kpi-val" id="kpi-unmapped">—</div>
+          <div class="kpi-sub">no matching rule</div>
+        </div>
+        <div class="kpi k-purple">
+          <div class="kpi-label">Disciplines</div>
+          <div class="kpi-val" id="kpi-disciplines">—</div>
+          <div class="kpi-sub">configured</div>
+        </div>
+        <div class="kpi k-teal">
+          <div class="kpi-label">Source Files</div>
+          <div class="kpi-val" id="kpi-sourcefiles">—</div>
+          <div class="kpi-sub">loaded from CSV</div>
+        </div>
+      </div>
+
+      <!-- Chart + Table row -->
+      <div class="two-col">
+        <!-- Element count by discipline donut -->
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">📊 Elements by Discipline</div>
+          </div>
+          <div id="chartDiscDonut" style="height:260px;"></div>
+        </div>
+
+        <!-- Discipline breakdown table -->
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">📋 Discipline Mapping Summary</div>
+            <div class="panel-actions">
+              <button class="btn-sm" onclick="exportSummaryCSV()">⬇ CSV</button>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table id="summaryTable">
+              <thead><tr>
+                <th>Discipline</th>
+                <th>Author Category</th>
+                <th>Source File(s)</th>
+                <th>Workset Filter</th>
+                <th>Phase Filter</th>
+                <th>Elements</th>
+              </tr></thead>
+              <tbody id="summaryBody">
+                <tr><td colspan="6"><div class="empty">
+                  <div class="empty-icon">⚙️</div>
+                  <div class="empty-title">Configure project to see breakdown</div>
+                </div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Full data table placeholder -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">🗃️ Element Detail Table</div>
+          <div class="panel-actions">
+            <button class="btn-sm" onclick="exportDetailCSV()">⬇ CSV</button>
+          </div>
+        </div>
+        <div class="tbl-wrap" id="detailTableWrap">
+          <div class="empty">
+            <div class="empty-icon">📦</div>
+            <div class="empty-title">QTO breakdown columns coming in Phase 2</div>
+            <div class="empty-sub" style="font-size:11px;color:#374151;margin-top:4px;">Detailed quantity columns (Area, Volume, Length, Count, etc.) will be configured per discipline in the next phase.</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /dashContent -->
+  </main>
+</div>
+
+<!-- ── CONFIGURE PROJECT MODAL ─────────────────────────────────── -->
+<div class="modal-overlay" id="configModal">
+  <div class="modal-box">
+
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="modal-title">⚙️ Configure Project</div>
+        <div class="modal-subtitle">Map source files to disciplines — drives all dashboard filtering &amp; calculations. Select multiple source files, worksets, and phases per rule.</div>
+      </div>
+      <div class="modal-header-right">
+        <label style="cursor:pointer;" title="Load config from CSV">
+          <input type="file" accept=".csv" id="loadConfigInput" style="display:none;" onchange="loadConfigFromCSV(event)">
+          <div class="btn-secondary" onclick="document.getElementById('loadConfigInput').click()" style="cursor:pointer;">
+            📂 Load Config CSV
+          </div>
+        </label>
+        <button class="btn-close" onclick="closeConfigModal()">✕</button>
+      </div>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- Warning banner if no file loaded -->
+      <div class="notice-banner" id="noFileNotice" style="display:none;">
+        <span class="nb-icon">⚠️</span>
+        <div class="nb-text">
+          <strong>No CSV loaded.</strong> Load <strong>revizto_inspector.csv</strong> first so Source File, Workset, and Phase dropdowns can be populated from your data.
+        </div>
+      </div>
+
+      <!-- Configure table -->
+      <div class="cfg-table-wrap">
+        <table class="cfg-table">
+          <thead>
+            <tr>
+              <th style="width:28px;">#</th>
+              <th style="min-width:140px;">
+                Discipline
+                <span class="th-note">Architectural, Structural…</span>
+              </th>
+              <th style="min-width:110px;">
+                Author Category
+                <span class="th-note">Consultant / Subcontractor</span>
+              </th>
+              <th style="min-width:220px;">
+                Source File(s)
+                <span class="th-note">multi-select · 🟢 = used in another rule</span>
+              </th>
+              <th style="min-width:180px;">
+                Workset(s)
+                <span class="th-note">scoped to selected files · empty = All</span>
+              </th>
+              <th style="min-width:180px;">
+                Phase(s)
+                <span class="th-note">scoped to selected files · empty = All</span>
+              </th>
+              <th style="width:42px;"></th>
+            </tr>
+          </thead>
+          <tbody id="configTableBody">
+            <tr>
+              <td colspan="7">
+                <div class="cfg-empty">
+                  <div class="cfg-empty-icon">📋</div>
+                  <div class="cfg-empty-title">No rules configured yet</div>
+                  <div class="cfg-empty-sub">Click "+ Add Row" below to create your first mapping rule</div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /modal-body -->
+
+    <div class="modal-footer">
+      <div class="modal-footer-left">
+        <button class="btn-add-row" onclick="addConfigRow()">+ Add Row</button>
+        <button class="btn-secondary" onclick="downloadConfigCSV()">⬇ Download Config CSV</button>
+      </div>
+      <div class="modal-footer-right">
+        <button class="btn-secondary" onclick="closeConfigModal()">Cancel</button>
+        <button class="btn-save-settings" onclick="saveProjectSettings()">💾 Save Project Settings</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── TOAST ───────────────────────────────────────────────────── -->
+<div id="toast"></div>
+
+<!-- ── JAVASCRIPT ─────────────────────────────────────────────── -->
+<script>
+// ══════════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════════
+let reviztoRawRows  = [];
+let reviztoHeaders  = [];
+let sfColName       = null;
+let wsColName       = null;
+let phColName       = null;
+let uniqueSFList    = [];
+let sfWorksets      = {};
+let sfPhases        = {};
+let configRows      = [];
+let configRowCtr    = 0;
+let savedConfig     = [];
+let activeDisciplines = new Set();
+
+// Multi-select dropdown state
+let activeMsDropdown = null; // { rowId, field, el, items, usedElsewhere }
+
+// ══════════════════════════════════════════════════════════════════
+// SIMPLE CSV PARSER
+// ══════════════════════════════════════════════════════════════════
+function parseCSV(text) {
+  const rows = [];
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const row = [];
+    let inQ = false, cur = '';
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+        else { inQ = !inQ; }
+      } else if (ch === ',' && !inQ) {
+        row.push(cur.trim()); cur = '';
+      } else { cur += ch; }
+    }
+    row.push(cur.trim());
+    rows.push(row);
+  }
+  return rows;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// FILE LOADING — REVIZTO INSPECTOR CSV
+// ══════════════════════════════════════════════════════════════════
+function handleReviztoCSV(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const rows = parseCSV(ev.target.result);
+    if (rows.length < 2) { showToast('CSV appears empty or invalid', 'warn'); return; }
+
+    reviztoHeaders = rows[0].map(h => String(h || '').trim());
+    sfColName = reviztoHeaders.find(h => h.toLowerCase().includes('source file')) || null;
+    wsColName = reviztoHeaders.find(h => h.toLowerCase().includes('workset'))     || null;
+    phColName = reviztoHeaders.find(h => h.toLowerCase().includes('phase'))       || null;
+
+    reviztoRawRows = rows.slice(1)
+      .filter(r => r.some(v => v))
+      .map(r => {
+        const obj = {};
+        reviztoHeaders.forEach((h, i) => { obj[h] = String(r[i] || '').trim(); });
+        return obj;
+      });
+
+    buildSourceFileMaps();
+
+    setDot('dot-revizto', 'ok');
+    setText('lbl-revizto', `Revizto: ${file.name} (${reviztoRawRows.length.toLocaleString()} rows)`);
+    document.getElementById('lbl-revizto').style.color = '#22c55e';
+    const sub = document.getElementById('reviztoSub');
+    if (sub) { sub.textContent = file.name; sub.className = 'folder-sub ok'; }
+    document.getElementById('reviztoBox').classList.add('loaded');
+
+    const missing = [
+      !sfColName && 'Source File',
+      !wsColName && 'Workset',
+      !phColName && 'Phase/Phases'
+    ].filter(Boolean);
+    if (missing.length) {
+      showToast(`Column(s) not detected: ${missing.join(', ')} — check CSV headers`, 'warn');
+    } else {
+      showToast(`Loaded ${reviztoRawRows.length.toLocaleString()} rows — ${uniqueSFList.length} source files detected`, 'success');
+    }
+
+    if (document.getElementById('configModal').classList.contains('open')) {
+      renderConfigTable();
+    }
+    if (savedConfig.length) runDashboard();
+  };
+  reader.readAsText(file);
+}
+
+function buildSourceFileMaps() {
+  uniqueSFList = [];
+  sfWorksets   = {};
+  sfPhases     = {};
+  const sfSet  = new Set();
+
+  reviztoRawRows.forEach(row => {
+    const sf = sfColName ? (row[sfColName] || '').trim() : '';
+    if (!sf) return;
+    if (!sfSet.has(sf)) {
+      sfSet.add(sf);
+      uniqueSFList.push(sf);
+      sfWorksets[sf] = new Set();
+      sfPhases[sf]   = new Set();
+    }
+    if (wsColName && row[wsColName]) sfWorksets[sf].add(row[wsColName].trim());
+    if (phColName && row[phColName]) sfPhases[sf].add(row[phColName].trim());
+  });
+
+  uniqueSFList.sort();
+  for (const sf of uniqueSFList) {
+    sfWorksets[sf] = [...sfWorksets[sf]].sort();
+    sfPhases[sf]   = [...sfPhases[sf]].sort();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CONFIGURE PROJECT MODAL
+// ══════════════════════════════════════════════════════════════════
+const DISCIPLINES = ['Architectural','Mechanical','Structural','Electrical','Fire Protection','Hydraulics','Civil'];
+const AUTHOR_CATS = ['Consultant','Subcontractor'];
+
+function openConfigModal() {
+  closeMsDropdown();
+  document.getElementById('configModal').classList.add('open');
+  document.getElementById('noFileNotice').style.display = reviztoRawRows.length ? 'none' : 'flex';
+  renderConfigTable();
+}
+
+function closeConfigModal() {
+  closeMsDropdown();
+  document.getElementById('configModal').classList.remove('open');
+}
+
+function addConfigRow() {
+  configRowCtr++;
+  configRows.push({ id: configRowCtr, discipline: '', authorCategory: '', sourceFiles: [], worksets: [], phases: [] });
+  renderConfigTable();
+}
+
+function deleteConfigRow(id) {
+  configRows = configRows.filter(r => r.id !== id);
+  renderConfigTable();
+}
+
+function updateRowField(id, field, value) {
+  const row = configRows.find(r => r.id === id);
+  if (row) row[field] = value;
+}
+
+// ── RENDER CONFIG TABLE ──────────────────────────────────────────
+function renderConfigTable() {
+  const tbody = document.getElementById('configTableBody');
+  if (!configRows.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="cfg-empty">
+      <div class="cfg-empty-icon">📋</div>
+      <div class="cfg-empty-title">No rules configured yet</div>
+      <div class="cfg-empty-sub">Click "+ Add Row" below to create your first mapping rule</div>
+    </div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = '';
+  configRows.forEach((row, idx) => {
+    const tr = document.createElement('tr');
+
+    // Collect source files used in OTHER rows for green highlighting
+    const usedSFsElsewhere = new Set(
+      configRows.filter(r => r.id !== row.id).flatMap(r => r.sourceFiles || [])
+    );
+
+    // Build union of worksets/phases for selected source files
+    const availableWS = getUnionSet(row.sourceFiles, sfWorksets);
+    const availablePH = getUnionSet(row.sourceFiles, sfPhases);
+
+    tr.innerHTML = `
+      <td class="cfg-row-num">${idx + 1}</td>
+      <td>${buildSelect('discipline', row.id, row.discipline, DISCIPLINES, 'updateRowField', '-- Discipline --')}</td>
+      <td>${buildSelect('authorCategory', row.id, row.authorCategory, AUTHOR_CATS, 'updateRowField', '-- Category --')}</td>
+      <td>${buildMsTriggerHtml(row.id, 'sourceFiles', row.sourceFiles, '-- Select File(s) --', !reviztoRawRows.length || !sfColName, usedSFsElsewhere)}</td>
+      <td>${buildMsTriggerHtml(row.id, 'worksets', row.worksets, row.sourceFiles.length ? '— All Worksets —' : '— Select File(s) First —', !row.sourceFiles.length, new Set())}</td>
+      <td>${buildMsTriggerHtml(row.id, 'phases', row.phases, row.sourceFiles.length ? '— All Phases —' : '— Select File(s) First —', !row.sourceFiles.length, new Set())}</td>
+      <td style="text-align:center;"><button class="btn-del" onclick="deleteConfigRow(${row.id})">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function getUnionSet(sourceFiles, dataMap) {
+  const result = new Set();
+  (sourceFiles || []).forEach(sf => { (dataMap[sf] || []).forEach(v => result.add(v)); });
+  return [...result].sort();
+}
+
+function buildSelect(field, id, val, options, handlerFn, placeholder) {
+  const optHtml = [`<option value="">${placeholder}</option>`,
+    ...options.map(o => `<option value="${esc(o)}" ${val === o ? 'selected' : ''}>${esc(o)}</option>`)
+  ].join('');
+  return `<select class="cfg-select" onchange="${handlerFn}(${id},'${field}',this.value)">${optHtml}</select>`;
+}
+
+function buildMsTriggerHtml(rowId, field, arr, placeholder, disabled, usedElsewhereSet) {
+  const disabledClass = disabled ? ' ms-disabled' : '';
+  let content;
+  if (!arr || !arr.length) {
+    content = `<span class="ms-placeholder">${placeholder}</span>`;
+  } else {
+    content = arr.map(v => {
+      const isGreen = field === 'sourceFiles' && usedElsewhereSet && usedElsewhereSet.has(v);
+      return `<span class="ms-tag${isGreen ? ' ms-tag-green' : ''}">${esc(v)}</span>`;
+    }).join('');
+  }
+  if (disabled) {
+    return `<div class="ms-trigger ms-disabled">${content}</div>`;
+  }
+  return `<div class="ms-trigger${disabledClass}" data-row="${rowId}" data-field="${field}" onclick="event.stopPropagation();openMsDropdown(${rowId},'${field}',this)">${content}</div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MULTI-SELECT DROPDOWN PORTAL
+// ══════════════════════════════════════════════════════════════════
+function openMsDropdown(rowId, field, triggerEl) {
+  // Close existing
+  closeMsDropdown();
+
+  const row = configRows.find(r => r.id === rowId);
+  if (!row) return;
+
+  // Build items list
+  let items = [];
+  if (field === 'sourceFiles') {
+    items = uniqueSFList.slice();
+  } else if (field === 'worksets') {
+    items = getUnionSet(row.sourceFiles, sfWorksets);
+  } else if (field === 'phases') {
+    items = getUnionSet(row.sourceFiles, sfPhases);
+  }
+
+  const usedElsewhere = field === 'sourceFiles'
+    ? new Set(configRows.filter(r => r.id !== rowId).flatMap(r => r.sourceFiles || []))
+    : new Set();
+
+  const rect = triggerEl.getBoundingClientRect();
+  const dd = document.createElement('div');
+  dd.className = 'ms-dd-portal';
+  dd.id = 'msDDPortal';
+
+  const ddWidth = Math.max(rect.width, 260);
+  let ddTop = rect.bottom + 4;
+  let ddLeft = rect.left;
+  // Prevent going off screen right
+  if (ddLeft + ddWidth > window.innerWidth - 8) ddLeft = window.innerWidth - ddWidth - 8;
+
+  dd.style.cssText = `position:fixed;top:${ddTop}px;left:${ddLeft}px;width:${ddWidth}px;z-index:9990;`;
+  dd.innerHTML = buildMsDDContent(rowId, field, items, row[field], usedElsewhere, '');
+
+  document.body.appendChild(dd);
+  triggerEl.classList.add('ms-open');
+
+  activeMsDropdown = { rowId, field, el: dd, items, usedElsewhere, triggerEl };
+
+  // Focus search
+  setTimeout(() => {
+    const inp = dd.querySelector('.ms-dd-search');
+    if (inp) inp.focus();
+  }, 20);
+}
+
+function buildMsDDContent(rowId, field, items, selected, usedElsewhere, searchTerm) {
+  const filtered = searchTerm
+    ? items.filter(i => i.toLowerCase().includes(searchTerm.toLowerCase()))
+    : items;
+
+  let listHtml;
+  if (!items.length) {
+    const msg = field === 'sourceFiles'
+      ? (reviztoRawRows.length ? 'No source files detected in CSV' : 'Load CSV first')
+      : 'No options available for selected file(s)';
+    listHtml = `<div class="ms-dd-empty">${msg}</div>`;
+  } else if (!filtered.length) {
+    listHtml = `<div class="ms-dd-empty">No matches for "${esc(searchTerm)}"</div>`;
+  } else {
+    listHtml = filtered.map(item => {
+      const realIdx = items.indexOf(item);
+      const isChecked = selected.includes(item);
+      const isUsed = usedElsewhere.has(item);
+      return `<div class="ms-dd-item ${isChecked ? 'ms-checked' : ''}"
+        onclick="toggleMsItem(${rowId},'${field}',${realIdx},this)"
+        data-idx="${realIdx}">
+        <span class="ms-dd-cb">${isChecked ? '☑' : '☐'}</span>
+        <span class="ms-dd-label" title="${esc(item)}">${esc(item)}</span>
+        ${isUsed ? `<span class="ms-dd-used" title="Already used in another rule">🟢 in use</span>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  const selCount = selected.length;
+  const showLegend = field === 'sourceFiles' && usedElsewhere.size > 0;
+
+  return `
+    <div class="ms-dd-search-wrap">
+      <input type="text" class="ms-dd-search" placeholder="🔍 Search ${field === 'sourceFiles' ? 'files' : field}…"
+        value="${esc(searchTerm)}"
+        oninput="filterMsDD(${rowId},'${field}',this.value)"
+        onclick="event.stopPropagation()"
+      >
+    </div>
+    <div class="ms-dd-list" id="msDDList">${listHtml}</div>
+    <div class="ms-dd-footer">
+      <span class="ms-dd-count" id="msDDCount">${selCount} selected</span>
+      ${showLegend ? `<span class="ms-dd-legend"><span class="ms-dd-legend-dot">🟢</span> = used in another rule</span>` : ''}
+      <span class="ms-dd-clear" onclick="event.stopPropagation();clearMsField(${rowId},'${field}')">Clear all</span>
+    </div>
+  `;
+}
+
+function filterMsDD(rowId, field, searchTerm) {
+  if (!activeMsDropdown) return;
+  const row = configRows.find(r => r.id === rowId);
+  if (!row) return;
+
+  const { items, usedElsewhere } = activeMsDropdown;
+  const selected = row[field];
+  const filtered = searchTerm
+    ? items.filter(i => i.toLowerCase().includes(searchTerm.toLowerCase()))
+    : items;
+
+  const listEl = document.getElementById('msDDList');
+  if (!listEl) return;
+
+  if (!filtered.length) {
+    listEl.innerHTML = `<div class="ms-dd-empty">No matches for "${esc(searchTerm)}"</div>`;
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(item => {
+    const realIdx = items.indexOf(item);
+    const isChecked = selected.includes(item);
+    const isUsed = usedElsewhere.has(item);
+    return `<div class="ms-dd-item ${isChecked ? 'ms-checked' : ''}"
+      onclick="toggleMsItem(${rowId},'${field}',${realIdx},this)"
+      data-idx="${realIdx}">
+      <span class="ms-dd-cb">${isChecked ? '☑' : '☐'}</span>
+      <span class="ms-dd-label" title="${esc(item)}">${esc(item)}</span>
+      ${isUsed ? `<span class="ms-dd-used" title="Already used in another rule">🟢 in use</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function toggleMsItem(rowId, field, itemIdx, itemEl) {
+  if (!activeMsDropdown) return;
+  const row = configRows.find(r => r.id === rowId);
+  if (!row) return;
+
+  const items = activeMsDropdown.items;
+  const item = items[itemIdx];
+  if (item === undefined) return;
+
+  const arr = row[field];
+  const pos = arr.indexOf(item);
+  if (pos >= 0) {
+    arr.splice(pos, 1);
+    itemEl.classList.remove('ms-checked');
+    const cb = itemEl.querySelector('.ms-dd-cb');
+    if (cb) cb.textContent = '☐';
+  } else {
+    arr.push(item);
+    itemEl.classList.add('ms-checked');
+    const cb = itemEl.querySelector('.ms-dd-cb');
+    if (cb) cb.textContent = '☑';
+  }
+
+  // If sourceFiles changed, reset downstream
+  if (field === 'sourceFiles') {
+    row.worksets = [];
+    row.phases   = [];
+    // Refresh used-elsewhere indicators across all items in dropdown
+    const newUsed = new Set(configRows.filter(r => r.id !== rowId).flatMap(r => r.sourceFiles || []));
+    activeMsDropdown.usedElsewhere = newUsed;
+    const allItems = activeMsDropdown.el.querySelectorAll('.ms-dd-item');
+    allItems.forEach(el => {
+      const idx = parseInt(el.dataset.idx);
+      const val = items[idx];
+      let dot = el.querySelector('.ms-dd-used');
+      if (newUsed.has(val)) {
+        if (!dot) {
+          dot = document.createElement('span');
+          dot.className = 'ms-dd-used';
+          dot.title = 'Already used in another rule';
+          dot.textContent = '🟢 in use';
+          el.appendChild(dot);
+        }
+      } else {
+        if (dot) dot.remove();
+      }
+    });
+  }
+
+  // Update trigger display
+  updateMsTrigger(rowId, field);
+
+  // Update count
+  const countEl = document.getElementById('msDDCount');
+  if (countEl) countEl.textContent = `${arr.length} selected`;
+}
+
+function clearMsField(rowId, field) {
+  const row = configRows.find(r => r.id === rowId);
+  if (!row) return;
+  row[field] = [];
+  if (field === 'sourceFiles') { row.worksets = []; row.phases = []; }
+  updateMsTrigger(rowId, field);
+
+  // Reset dropdown list visuals
+  const listEl = document.getElementById('msDDList');
+  if (listEl) {
+    listEl.querySelectorAll('.ms-dd-item').forEach(el => {
+      el.classList.remove('ms-checked');
+      const cb = el.querySelector('.ms-dd-cb');
+      if (cb) cb.textContent = '☐';
+    });
+  }
+  const countEl = document.getElementById('msDDCount');
+  if (countEl) countEl.textContent = '0 selected';
+}
+
+function updateMsTrigger(rowId, field) {
+  const el = document.querySelector(`.ms-trigger[data-row="${rowId}"][data-field="${field}"]`);
+  if (!el) return;
+  const row = configRows.find(r => r.id === rowId);
+  if (!row) return;
+
+  const arr = row[field] || [];
+  const placeholder = field === 'sourceFiles'
+    ? '-- Select File(s) --'
+    : field === 'worksets'
+    ? (row.sourceFiles.length ? '— All Worksets —' : '— Select File(s) First —')
+    : (row.sourceFiles.length ? '— All Phases —' : '— Select File(s) First —');
+
+  if (!arr.length) {
+    el.innerHTML = `<span class="ms-placeholder">${placeholder}</span>`;
+  } else {
+    const usedElsewhere = field === 'sourceFiles'
+      ? new Set(configRows.filter(r => r.id !== rowId).flatMap(r => r.sourceFiles || []))
+      : new Set();
+    el.innerHTML = arr.map(v => {
+      const isGreen = field === 'sourceFiles' && usedElsewhere.has(v);
+      return `<span class="ms-tag${isGreen ? ' ms-tag-green' : ''}">${esc(v)}</span>`;
+    }).join('');
+  }
+
+  // If sourceFiles just changed, also re-render downstream triggers
+  if (field === 'sourceFiles') {
+    // Re-enable/disable workset and phase triggers
+    const wsEl = document.querySelector(`.ms-trigger[data-row="${rowId}"][data-field="worksets"]`);
+    const phEl = document.querySelector(`.ms-trigger[data-row="${rowId}"][data-field="phases"]`);
+    if (arr.length) {
+      if (wsEl) wsEl.classList.remove('ms-disabled');
+      if (phEl) phEl.classList.remove('ms-disabled');
+    } else {
+      if (wsEl) { wsEl.classList.add('ms-disabled'); wsEl.innerHTML = `<span class="ms-placeholder">— Select File(s) First —</span>`; }
+      if (phEl) { phEl.classList.add('ms-disabled'); phEl.innerHTML = `<span class="ms-placeholder">— Select File(s) First —</span>`; }
+    }
+    // Update workset/phase triggers in case they had values (now cleared)
+    updateMsTrigger(rowId, 'worksets');
+    updateMsTrigger(rowId, 'phases');
+  }
+}
+
+function closeMsDropdown() {
+  if (activeMsDropdown) {
+    if (activeMsDropdown.triggerEl) activeMsDropdown.triggerEl.classList.remove('ms-open');
+    activeMsDropdown.el.remove();
+    activeMsDropdown = null;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SAVE / DOWNLOAD / LOAD CONFIG
+// ══════════════════════════════════════════════════════════════════
+function saveProjectSettings() {
+  if (!configRows.length) { showToast('Add at least one rule before saving', 'warn'); return; }
+  const hasEmpty = configRows.some(r => !r.discipline || !r.sourceFiles || !r.sourceFiles.length);
+  if (hasEmpty) { showToast('All rows must have a Discipline and at least one Source File', 'warn'); return; }
+
+  savedConfig = configRows.map(r => ({ ...r, sourceFiles: [...r.sourceFiles], worksets: [...r.worksets], phases: [...r.phases] }));
+  localStorage.setItem('qto_project_config', JSON.stringify(savedConfig));
+
+  updateCfgBadge();
+  buildDisciplineChips();
+  runDashboard();
+  closeConfigModal();
+  showToast(`${savedConfig.length} rule${savedConfig.length !== 1 ? 's' : ''} saved successfully`, 'success');
+}
+
+function downloadConfigCSV() {
+  const headers = ['Discipline', 'Author Category', 'Source Files', 'Worksets', 'Phases'];
+  const csvRows = configRows.map(r => [
+    r.discipline,
+    r.authorCategory || '',
+    (r.sourceFiles || []).join('|'),
+    (r.worksets || []).join('|'),
+    (r.phases || []).join('|')
+  ]);
+  const csv = [headers, ...csvRows].map(row => row.map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(',')).join('\n');
+  downloadString(csv, 'project_config.csv', 'text/csv');
+  showToast('Config downloaded as project_config.csv', 'info');
+}
+
+function loadConfigFromCSV(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const rows = parseCSV(ev.target.result);
+    if (rows.length < 2) { showToast('Config CSV is empty or invalid', 'warn'); return; }
+    const hdr = rows[0].map(h => h.toLowerCase().trim());
+    const dI  = hdr.indexOf('discipline');
+    const aI  = hdr.indexOf('author category');
+    // Support both old single and new multi column names
+    const sfI = hdr.indexOf('source files') >= 0 ? hdr.indexOf('source files') : hdr.indexOf('source file');
+    const wsI = hdr.indexOf('worksets') >= 0 ? hdr.indexOf('worksets') : hdr.indexOf('workset');
+    const phI = hdr.indexOf('phases') >= 0 ? hdr.indexOf('phases') : hdr.indexOf('phase');
+
+    configRows = rows.slice(1).filter(r => r.some(v => v)).map(r => {
+      configRowCtr++;
+      // Handle old format (single string) vs new format (pipe-separated)
+      const sfRaw = sfI >= 0 ? (r[sfI] || '') : '';
+      const wsRaw = wsI >= 0 ? (r[wsI] || '') : '';
+      const phRaw = phI >= 0 ? (r[phI] || '') : '';
+      return {
+        id:             configRowCtr,
+        discipline:     dI  >= 0 ? r[dI]  : '',
+        authorCategory: aI  >= 0 ? r[aI]  : '',
+        sourceFiles:    sfRaw ? sfRaw.split('|').map(s => s.trim()).filter(Boolean) : [],
+        worksets:       (wsRaw && wsRaw !== 'All') ? wsRaw.split('|').map(s => s.trim()).filter(Boolean) : [],
+        phases:         (phRaw && phRaw !== 'All') ? phRaw.split('|').map(s => s.trim()).filter(Boolean) : [],
+      };
+    });
+
+    renderConfigTable();
+    document.getElementById('loadConfigInput').value = '';
+    showToast(`Loaded ${configRows.length} rule${configRows.length !== 1 ? 's' : ''} from CSV`, 'success');
+  };
+  reader.readAsText(file);
+}
+
+function loadSavedConfig() {
+  try {
+    const stored = localStorage.getItem('qto_project_config');
+    if (!stored) return;
+    const parsed = JSON.parse(stored);
+    if (Array.isArray(parsed) && parsed.length) {
+      // Migrate old single-value format to array format
+      const migrated = parsed.map(r => {
+        if (!r.sourceFiles) {
+          r.sourceFiles = r.sourceFile ? [r.sourceFile] : [];
+        }
+        if (!r.worksets) {
+          r.worksets = (r.workset && r.workset !== 'All') ? [r.workset] : [];
+        }
+        if (!r.phases) {
+          r.phases = (r.phase && r.phase !== 'All') ? [r.phase] : [];
+        }
+        return r;
+      });
+      savedConfig  = migrated;
+      configRows   = migrated.map(r => ({ ...r, sourceFiles: [...r.sourceFiles], worksets: [...r.worksets], phases: [...r.phases] }));
+      configRowCtr = Math.max(0, ...migrated.map(r => r.id || 0));
+      updateCfgBadge();
+      buildDisciplineChips();
+    }
+  } catch(err) { /* ignore */ }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════════════════════════════
+let mappedRows    = [];
+let unmappedRows  = [];
+let filteredRows  = [];
+
+function runDashboard() {
+  if (!reviztoRawRows.length || !savedConfig.length) return;
+
+  mappedRows   = [];
+  unmappedRows = [];
+
+  reviztoRawRows.forEach(row => {
+    const sf = sfColName ? (row[sfColName] || '').trim() : '';
+    const ws = wsColName ? (row[wsColName] || '').trim() : '';
+    const ph = phColName ? (row[phColName] || '').trim() : '';
+
+    const match = savedConfig.find(rule => {
+      // Support both old (single sourceFile) and new (sourceFiles array)
+      const sfs = Array.isArray(rule.sourceFiles) ? rule.sourceFiles
+                : (rule.sourceFile ? [rule.sourceFile] : []);
+      if (!sfs.includes(sf)) return false;
+
+      const wss = Array.isArray(rule.worksets) ? rule.worksets
+                : (rule.workset && rule.workset !== 'All' ? [rule.workset] : []);
+      if (wss.length && !wss.includes(ws)) return false;
+
+      const phs = Array.isArray(rule.phases) ? rule.phases
+                : (rule.phase && rule.phase !== 'All' ? [rule.phase] : []);
+      if (phs.length && !phs.includes(ph)) return false;
+
+      return true;
+    });
+
+    if (match) {
+      mappedRows.push({ ...row, _discipline: match.discipline, _authorCat: match.authorCategory, _ruleId: match.id });
+    } else {
+      unmappedRows.push({ ...row, _discipline: 'Unmapped', _authorCat: '—', _ruleId: null });
+    }
+  });
+
+  filteredRows = [...mappedRows];
+
+  updateKPIs();
+  renderSummaryTable();
+  renderDiscDonut();
+  updateConfigSummaryBar();
+
+  document.getElementById('idleScreen').style.display = 'none';
+  document.getElementById('dashContent').classList.add('visible');
+}
+
+function updateKPIs() {
+  const activeRows = activeDisciplines.size
+    ? filteredRows.filter(r => activeDisciplines.has(r._discipline))
+    : filteredRows;
+
+  setText('kpi-total',       reviztoRawRows.length.toLocaleString());
+  setText('kpi-mapped',      mappedRows.length.toLocaleString());
+  setText('kpi-unmapped',    unmappedRows.length.toLocaleString());
+  setText('kpi-disciplines', [...new Set(savedConfig.map(r => r.discipline))].length);
+  setText('kpi-sourcefiles', uniqueSFList.length.toLocaleString());
+}
+
+function renderSummaryTable() {
+  const tbody = document.getElementById('summaryBody');
+  if (!savedConfig.length) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty"><div class="empty-icon">⚙️</div><div class="empty-title">Configure project to see breakdown</div></div></td></tr>';
+    return;
+  }
+
+  const pillClass = { Architectural:'p-arch', Mechanical:'p-mech', Structural:'p-struc', Electrical:'p-elec', 'Fire Protection':'p-fire', Hydraulics:'p-hyd', Civil:'p-civil' };
+
+  tbody.innerHTML = savedConfig.map(rule => {
+    const count  = mappedRows.filter(r => r._ruleId === rule.id).length;
+    const pc     = pillClass[rule.discipline] || 'p-other';
+    const sfs    = Array.isArray(rule.sourceFiles) ? rule.sourceFiles : (rule.sourceFile ? [rule.sourceFile] : []);
+    const sfDisp = sfs.join(', ') || '—';
+    const wsDisp = Array.isArray(rule.worksets) && rule.worksets.length ? rule.worksets.join(', ') : 'All';
+    const phDisp = Array.isArray(rule.phases)   && rule.phases.length   ? rule.phases.join(', ')   : 'All';
+    return `<tr>
+      <td><span class="pill ${pc}">${esc(rule.discipline)}</span></td>
+      <td class="str">${esc(rule.authorCategory || '—')}</td>
+      <td class="str" style="max-width:240px;overflow:hidden;text-overflow:ellipsis;" title="${esc(sfDisp)}">${esc(sfDisp)}</td>
+      <td class="str" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;" title="${esc(wsDisp)}">${esc(wsDisp)}</td>
+      <td class="str" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;" title="${esc(phDisp)}">${esc(phDisp)}</td>
+      <td style="font-weight:bold;color:#60a5fa;">${count.toLocaleString()}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderDiscDonut() {
+  if (typeof Plotly === 'undefined') { setTimeout(renderDiscDonut, 300); return; }
+  const discMap = {};
+  mappedRows.forEach(r => { discMap[r._discipline] = (discMap[r._discipline] || 0) + 1; });
+  if (unmappedRows.length) discMap['Unmapped'] = unmappedRows.length;
+  const labels = Object.keys(discMap);
+  const values = labels.map(l => discMap[l]);
+  const COLORS = ['#3b82f6','#f59e0b','#ef4444','#a855f7','#fca5a5','#14b8a6','#22c55e','#94a3b8'];
+  Plotly.react('chartDiscDonut', [{
+    values, labels, type: 'pie', hole: 0.56,
+    marker: { colors: COLORS },
+    textinfo: 'label+percent',
+    textfont: { size: 10, color: '#fff', family: 'Arial' },
+    hoverinfo: 'label+value', direction: 'clockwise'
+  }], {
+    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+    font: { family: 'Arial', size: 10, color: '#94a3b8' },
+    margin: { t: 14, r: 10, b: 14, l: 10 }, showlegend: false
+  }, { responsive: true, displayModeBar: false });
+  setTimeout(() => { try { Plotly.Plots.resize('chartDiscDonut'); } catch(e){} }, 60);
+}
+
+function updateConfigSummaryBar() {
+  const container = document.getElementById('configSummaryChips');
+  const discs = [...new Set(savedConfig.map(r => r.discipline))].sort();
+  container.innerHTML = discs.map(d => `<span class="cs-chip">${esc(d)}</span>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DISCIPLINE FILTER CHIPS
+// ══════════════════════════════════════════════════════════════════
+function buildDisciplineChips() {
+  const wrap = document.getElementById('chipDiscipline');
+  const discs = [...new Set(savedConfig.map(r => r.discipline))].sort();
+  if (!discs.length) { wrap.innerHTML = '<span style="font-size:10px;color:#374151;">Configure project to populate</span>'; return; }
+  wrap.innerHTML = discs.map(d => `<span class="chip" data-val="${esc(d)}" onclick="toggleDisc(this,'${esc(d)}')">${esc(d)}</span>`).join('');
+}
+
+function toggleDisc(chip, disc) {
+  chip.classList.toggle('active');
+  if (chip.classList.contains('active')) activeDisciplines.add(disc);
+  else activeDisciplines.delete(disc);
+  applyFilters();
+}
+
+function clearFilters() {
+  activeDisciplines.clear();
+  document.querySelectorAll('#chipDiscipline .chip').forEach(c => c.classList.remove('active'));
+  applyFilters();
+}
+
+function applyFilters() {
+  updateKPIs();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// EXPORTS
+// ══════════════════════════════════════════════════════════════════
+function exportSummaryCSV() {
+  const headers = ['Discipline','Author Category','Source File(s)','Workset(s)','Phase(s)','Element Count'];
+  const rows = savedConfig.map(rule => {
+    const count  = mappedRows.filter(r => r._ruleId === rule.id).length;
+    const sfs    = Array.isArray(rule.sourceFiles) ? rule.sourceFiles : (rule.sourceFile ? [rule.sourceFile] : []);
+    const wsDisp = Array.isArray(rule.worksets) && rule.worksets.length ? rule.worksets.join('|') : 'All';
+    const phDisp = Array.isArray(rule.phases)   && rule.phases.length   ? rule.phases.join('|')   : 'All';
+    return [rule.discipline, rule.authorCategory || '', sfs.join('|'), wsDisp, phDisp, count];
+  });
+  const csv = [headers, ...rows].map(r => r.map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  downloadString(csv, 'qto_summary_' + dateStr() + '.csv', 'text/csv');
+}
+
+function exportDetailCSV() {
+  if (!mappedRows.length) { showToast('No data to export', 'warn'); return; }
+  const cols = ['_discipline','_authorCat', ...reviztoHeaders];
+  const header = ['Discipline','Author Category', ...reviztoHeaders];
+  const rows = mappedRows.map(r => cols.map(c => r[c] || ''));
+  const csv = [header, ...rows].map(r => r.map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  downloadString(csv, 'qto_detail_' + dateStr() + '.csv', 'text/csv');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// UTILITIES
+// ══════════════════════════════════════════════════════════════════
+function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+function setDot(id, cls)  { const el = document.getElementById(id); if (el) el.className = 'status-dot' + (cls ? ' ' + cls : ''); }
+function dateStr() { return new Date().toISOString().slice(0, 10); }
+function downloadString(str, filename, mime) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([str], { type: mime }));
+  a.download = filename;
+  a.click();
+}
+
+function updateCfgBadge() {
+  const b = document.getElementById('cfgBadge');
+  if (b) b.textContent = `${savedConfig.length} rule${savedConfig.length !== 1 ? 's' : ''}`;
+}
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast-${type}`;
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; }, 3000);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  loadSavedConfig();
+
+  // Close modal on backdrop click
+  document.getElementById('configModal').addEventListener('click', function(e) {
+    if (e.target === this) closeConfigModal();
+  });
+
+  // Close multi-select dropdown on click outside
+  document.addEventListener('click', function(e) {
+    if (activeMsDropdown) {
+      const dd = activeMsDropdown.el;
+      if (!dd.contains(e.target) && !e.target.closest('.ms-trigger')) {
+        closeMsDropdown();
+      }
+    }
+  });
+
+  // Close dropdown on scroll/resize
+  window.addEventListener('scroll', closeMsDropdown, true);
+  window.addEventListener('resize', closeMsDropdown);
+});
+</script>
+</body>
+</html>

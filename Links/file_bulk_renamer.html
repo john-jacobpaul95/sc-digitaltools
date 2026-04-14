@@ -343,19 +343,57 @@ function handleExcelFile(e) {
   const reader = new FileReader();
   reader.onload = function(ev) {
     try {
-      const wb   = XLSX.read(ev.target.result, { type: 'array' });
-      const ws   = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      var wb  = XLSX.read(ev.target.result, { type: 'array' });
+      var ws  = wb.Sheets[wb.SheetNames[0]];
+
+      // Convert to raw 2D array (no header assumption)
+      var raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+      // Find the header row — first row that contains an exact (case-insensitive)
+      // match for the cell text "Document No"
+      var headerRowIdx = -1;
+      for (var ri = 0; ri < raw.length; ri++) {
+        var found = raw[ri].some(function(cell) {
+          return String(cell).trim().toLowerCase() === 'document no';
+        });
+        if (found) { headerRowIdx = ri; break; }
+      }
+
+      // Fall back to row 0 if no "Document No" cell was found anywhere
+      if (headerRowIdx === -1) {
+        headerRowIdx = 0;
+        showToast('⚠ "Document No" header not found — using row 1 as header');
+      } else {
+        showToast('📊 Header row found at row ' + (headerRowIdx + 1));
+      }
+
+      var headerRow = raw[headerRowIdx].map(function(c) { return String(c).trim(); });
+      var dataRows  = raw.slice(headerRowIdx + 1);
+
+      // Build array of objects keyed by header values — skip completely blank rows
+      var rows = [];
+      dataRows.forEach(function(rowArr) {
+        var allBlank = rowArr.every(function(c) { return String(c).trim() === ''; });
+        if (allBlank) return;
+        var obj = {};
+        headerRow.forEach(function(col, ci) {
+          obj[col] = rowArr[ci] !== undefined ? rowArr[ci] : '';
+        });
+        rows.push(obj);
+      });
+
       excelData   = rows;
-      excelCols   = rows.length ? Object.keys(rows[0]) : [];
+      excelCols   = headerRow.filter(function(c) { return c !== ''; });
       excelLoaded = true;
+
       document.getElementById('xlBox').classList.add('xl-loaded');
-      const sub = document.getElementById('xlSub');
-      sub.textContent = '✓ ' + rows.length + ' rows, ' + excelCols.length + ' cols — ' + file.name;
+      var sub = document.getElementById('xlSub');
+      sub.textContent = '✓ ' + rows.length + ' rows, ' + excelCols.length + ' cols — ' + file.name + (headerRowIdx > 0 ? ' (header at row ' + (headerRowIdx + 1) + ')' : '');
       sub.className = 'loader-sub xl';
+
       renderSegments();
       reapplyAll(); renderTable();
-      showToast('📊 Excel loaded: ' + rows.length + ' rows, ' + excelCols.length + ' columns');
+      showToast('📊 Excel loaded: ' + rows.length + ' rows, ' + excelCols.length + ' cols' + (headerRowIdx > 0 ? ' — header detected at row ' + (headerRowIdx + 1) : ''));
     } catch(err) { showToast('⚠ Failed to read Excel: ' + err.message); }
   };
   reader.readAsArrayBuffer(file);

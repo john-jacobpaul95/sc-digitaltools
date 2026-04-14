@@ -1,0 +1,2391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>QTO Dashboard v3.4 | Revizto Selection Inspector</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,sans-serif;background:#001B49;color:#f9fafb;min-height:100vh;font-size:14px;}
+
+/* ── TOPBAR ───────────────────────────────────────────────────── */
+.topbar{background:#0a1f4e;border-bottom:2px solid #1e3a6e;height:58px;display:flex;align-items:center;padding:0 18px;position:sticky;top:0;z-index:200;gap:10px;}
+.topbar-right{margin-left:auto;display:flex;align-items:center;}
+
+/* ── THREE-PANEL LAYOUT ───────────────────────────────────────── */
+.page-wrap{display:flex;height:calc(100vh - 58px);}
+
+/* ── LEFT SIDEBAR ─────────────────────────────────────────────── */
+.sidebar{width:272px;min-width:272px;background:#0a1f4e;border-right:1px solid #1e3a6e;padding:14px 11px;display:flex;flex-direction:column;gap:5px;overflow-y:auto;flex-shrink:0;}
+
+/* ── CENTRE MAIN ──────────────────────────────────────────────── */
+.main{flex:1;padding:18px 20px;display:flex;flex-direction:column;gap:15px;overflow-y:auto;min-width:0;}
+
+/* ── RIGHT QTO PANEL ──────────────────────────────────────────── */
+.qto-right{width:272px;min-width:272px;background:#0a1f4e;border-left:1px solid #1e3a6e;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+.qto-right-header{padding:12px 13px 7px;border-bottom:1px solid #1e3a6e;flex-shrink:0;}
+.qto-right-title{font-size:11px;font-weight:bold;color:#cbd5e1;display:flex;align-items:center;gap:6px;}
+.qto-right-sub{font-size:9px;color:#374151;margin-top:2px;}
+.qto-right-body{flex:1;overflow-y:auto;}
+.qto-right-empty{padding:28px 14px;text-align:center;}
+.qto-right-empty-icon{font-size:26px;opacity:.22;margin-bottom:9px;}
+.qto-right-empty-txt{font-size:11px;color:#374151;line-height:1.5;}
+.qto-right-empty-action{font-size:11px;color:#3b82f6;cursor:pointer;text-decoration:underline;margin-top:7px;display:inline-block;}
+.qto-rt-main{display:flex;align-items:center;gap:6px;padding:8px 11px;cursor:pointer;user-select:none;border-bottom:1px solid rgba(30,58,110,.4);transition:background .12s;}
+.qto-rt-main:hover{background:rgba(59,130,246,.07);}
+.qto-rt-arrow{font-size:10px;color:#4b6a9e;width:12px;flex-shrink:0;}
+.qto-rt-main-name{font-size:11px;font-weight:bold;color:#93c5fd;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.qto-rt-count{font-size:9px;color:#374151;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.2);padding:1px 6px;border-radius:10px;white-space:nowrap;flex-shrink:0;}
+.qto-rt-subs{display:none;}
+.qto-rt-subs.open{display:block;}
+.qto-rt-sub{display:flex;align-items:center;gap:5px;padding:6px 11px 6px 24px;border-bottom:1px solid rgba(30,58,110,.22);cursor:pointer;transition:all .12s;}
+.qto-rt-sub:hover{background:rgba(59,130,246,.07);}
+.qto-rt-sub.selected{background:rgba(59,130,246,.14);border-left:3px solid #3b82f6;}
+.qto-rt-sub-name{flex:1;font-size:11px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.qto-rt-uom{font-size:9px;color:#60a5fa;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.15);padding:1px 6px;border-radius:8px;white-space:nowrap;flex-shrink:0;}
+.qto-right-footer{padding:7px 11px;border-top:1px solid #1e3a6e;flex-shrink:0;}
+
+/* ── SHARED ───────────────────────────────────────────────────── */
+.section-header{font-size:10px;font-weight:bold;letter-spacing:.12em;text-transform:uppercase;color:#4b6a9e;padding:9px 7px 3px 7px;}
+.s-divider{border:none;border-top:1px solid #1e3a6e;margin:5px 0;}
+
+/* ── FILE LIST (multi-csv) ────────────────────────────────────── */
+.file-load-btn{background:#111827;border:1px dashed #1e3a6e;border-radius:7px;padding:8px 10px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:border-color .2s;position:relative;}
+.file-load-btn:hover{border-color:#3b82f6;}
+.file-load-btn input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.file-item{display:flex;align-items:center;gap:6px;background:#111827;border:1px solid #22c55e;border-radius:6px;padding:5px 8px;font-size:10px;}
+.file-item-name{flex:1;color:#22c55e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px;}
+.file-item-rows{color:#374151;font-size:9px;white-space:nowrap;}
+.file-item-del{color:#ef4444;cursor:pointer;font-size:11px;flex-shrink:0;background:none;border:none;padding:0 2px;line-height:1;}
+.file-item-del:hover{color:#fca5a5;}
+
+/* ── CONFIGURE BUTTONS ────────────────────────────────────────── */
+.btn-configure{border-radius:7px;font-size:11px;font-weight:bold;cursor:pointer;font-family:Arial,sans-serif;width:100%;text-align:left;display:flex;align-items:center;gap:7px;transition:all .2s;padding:7px 10px;background:linear-gradient(135deg,#1e3a6e,#0f2a5a);border:1px solid #3b82f6;color:#93c5fd;}
+.btn-configure:hover{background:linear-gradient(135deg,#243f74,#163070);border-color:#60a5fa;box-shadow:0 0 8px rgba(59,130,246,.2);}
+.btn-configure .cfg-badge{margin-left:auto;font-size:9px;padding:1px 6px;border-radius:10px;font-family:'Courier New',monospace;white-space:nowrap;flex-shrink:0;background:rgba(59,130,246,.18);color:#60a5fa;}
+.btn-bulk-cfg{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);color:#60a5fa;padding:4px 9px;border-radius:6px;font-size:9px;font-weight:bold;cursor:pointer;font-family:Arial,sans-serif;transition:all .15s;white-space:nowrap;}
+.btn-bulk-cfg:hover{background:rgba(59,130,246,.2);border-color:#3b82f6;}
+
+/* ── FILTERS ──────────────────────────────────────────────────── */
+.filter-group{display:flex;flex-direction:column;gap:4px;padding:0 1px;}
+.filter-label{font-size:10px;font-weight:bold;color:#4b6a9e;text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:5px;}
+.fl-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.fl-blue{background:#3b82f6;}.fl-amber{background:#f59e0b;}.fl-teal{background:#14b8a6;}.fl-purple{background:#a855f7;}.fl-green{background:#22c55e;}.fl-rose{background:#f43f5e;}
+.chip-scroll{max-height:68px;overflow-y:auto;display:flex;flex-wrap:wrap;gap:3px;background:#111827;border:1px solid #1e3a6e;border-radius:6px;padding:4px;}
+.chip{font-size:10px;padding:2px 8px;border-radius:12px;border:1px solid #1e3a6e;background:#111827;color:#94a3b8;cursor:pointer;transition:all .12s;user-select:none;white-space:nowrap;}
+.chip:hover{border-color:#3b82f6;color:#93c5fd;}
+.chip.active-disc{background:#1e3a6e;border-color:#3b82f6;color:#93c5fd;font-weight:bold;}
+.chip.active-auth{background:rgba(245,158,11,.13);border-color:#f59e0b;color:#fcd34d;font-weight:bold;}
+.chip.active-authcat{background:rgba(20,184,166,.13);border-color:#14b8a6;color:#5eead4;font-weight:bold;}
+.chip.active-prec{background:rgba(168,85,247,.13);border-color:#a855f7;color:#d8b4fe;font-weight:bold;}
+.chip.active-dyn{background:rgba(244,63,94,.13);border-color:#f43f5e;color:#fda4af;font-weight:bold;}
+.btn-clear-all{background:transparent;border:1px solid #1e3a6e;color:#94a3b8;padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;width:100%;margin-top:2px;font-family:Arial,sans-serif;transition:all .15s;}
+.btn-clear-all:hover{border-color:#374151;background:#111827;color:#f9fafb;}
+/* Dynamic filter controls */
+.dyn-filter-item{display:flex;flex-direction:column;gap:4px;padding:5px 7px;background:rgba(244,63,94,.04);border:1px solid rgba(244,63,94,.2);border-radius:7px;}
+.dyn-filter-hdr{display:flex;align-items:center;gap:5px;}
+.dyn-filter-label{font-size:10px;font-weight:bold;color:#fda4af;text-transform:uppercase;letter-spacing:.06em;flex:1;}
+.dyn-filter-del{background:none;border:none;color:#f43f5e;cursor:pointer;font-size:12px;padding:0;line-height:1;}
+.btn-add-dyn{background:rgba(244,63,94,.08);border:1px dashed rgba(244,63,94,.3);color:#fda4af;padding:5px 10px;border-radius:6px;font-size:10px;cursor:pointer;width:100%;font-family:Arial,sans-serif;transition:all .15s;}
+.btn-add-dyn:hover{background:rgba(244,63,94,.14);border-color:#f43f5e;}
+/* Add filter picker modal */
+.add-filter-picker{position:fixed;background:#111827;border:1px solid #3b82f6;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.65);padding:12px;z-index:9990;min-width:220px;}
+.add-filter-picker input{width:100%;background:#0a1f4e;border:1px solid #1e3a6e;border-radius:5px;color:#f9fafb;padding:5px 8px;font-size:11px;outline:none;font-family:Arial,sans-serif;margin-bottom:7px;}
+.add-filter-picker input:focus{border-color:#3b82f6;}
+.add-filter-list{max-height:160px;overflow-y:auto;}
+.add-filter-opt{padding:5px 8px;font-size:11px;color:#e2e8f0;cursor:pointer;border-radius:4px;}
+.add-filter-opt:hover{background:rgba(59,130,246,.1);}
+.add-filter-empty{padding:10px 8px;font-size:10px;color:#4b6a9e;text-align:center;}
+
+/* ── MAIN AREA ────────────────────────────────────────────────── */
+.idle-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:50px 20px;text-align:center;}
+.idle-icon{font-size:42px;opacity:.18;}
+.idle-title{font-size:16px;font-weight:bold;color:#4b6a9e;}
+.idle-sub{font-size:12px;color:#374151;max-width:360px;line-height:1.6;}
+
+/* ── KPIs ─────────────────────────────────────────────────────── */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+.kpi{background:#1e293b;border:1px solid #1e3a6e;border-radius:9px;padding:12px 14px;border-top:3px solid transparent;}
+.kpi.k-blue{border-top-color:#3b82f6;} .kpi.k-green{border-top-color:#22c55e;} .kpi.k-amber{border-top-color:#f59e0b;}
+.kpi.k-purple{border-top-color:#a855f7;} .kpi.k-teal{border-top-color:#14b8a6;}
+.kpi-label{font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.08em;color:#64748b;}
+.kpi-val{font-size:24px;font-weight:bold;font-family:'Courier New',monospace;margin:3px 0 2px;line-height:1;}
+.kpi.k-blue .kpi-val{color:#3b82f6;} .kpi.k-green .kpi-val{color:#22c55e;} .kpi.k-amber .kpi-val{color:#f59e0b;}
+.kpi.k-purple .kpi-val{color:#a855f7;} .kpi.k-teal .kpi-val{color:#14b8a6;}
+.kpi-sub{font-size:10px;color:#4b6a9e;}
+
+/* ── PANELS ───────────────────────────────────────────────────── */
+.panel{background:#1e293b;border:1px solid #1e3a6e;border-radius:9px;overflow:hidden;}
+.panel-head{background:#0f1f3d;border-bottom:1px solid #1e3a6e;padding:9px 14px;display:flex;align-items:center;justify-content:space-between;}
+.panel-title{font-size:12px;font-weight:bold;color:#cbd5e1;}
+.panel-actions{display:flex;gap:6px;}
+.btn-sm{background:#374151;color:#f9fafb;border:none;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:bold;cursor:pointer;font-family:Arial,sans-serif;transition:background .15s;}
+.btn-sm:hover{background:#4b5563;}
+.two-col{display:grid;grid-template-columns:300px 1fr;gap:12px;align-items:start;}
+
+/* ── TABLES ───────────────────────────────────────────────────── */
+.tbl-wrap{overflow-x:auto;max-height:calc(100vh - 330px);overflow-y:auto;}
+.tbl-wrap-tall{overflow-x:auto;max-height:calc(100vh - 230px);overflow-y:auto;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead th{background:#0f1f3d;padding:7px 10px;text-align:left;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.07em;color:#64748b;border-bottom:1px solid #1e3a6e;white-space:nowrap;position:sticky;top:0;z-index:1;}
+tbody tr{border-bottom:1px solid rgba(30,58,110,.35);transition:background .1s;}
+tbody tr:hover{background:rgba(59,130,246,.05);}
+tbody td{padding:6px 10px;color:#e2e8f0;font-family:'Courier New',monospace;font-size:11px;white-space:nowrap;}
+tbody td.str{font-family:Arial,sans-serif;}
+tfoot td{background:#0f1f3d;padding:7px 10px;font-size:11px;font-weight:bold;border-top:2px solid #1e3a6e;white-space:nowrap;}
+.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:bold;text-transform:uppercase;font-family:Arial,sans-serif;}
+.p-arch{background:rgba(255,255,255,.1);color:#f8fafc;} .p-mech{background:rgba(22,101,52,.25);color:#4ade80;}
+.p-struc{background:rgba(251,207,232,.1);color:#fbcfe8;} .p-elec{background:rgba(168,85,247,.12);color:#a855f7;}
+.p-fire{background:rgba(249,115,22,.12);color:#fb923c;} .p-hyd{background:rgba(34,211,238,.12);color:#22d3ee;}
+.p-civil{background:rgba(100,116,139,.12);color:#94a3b8;} .p-land{background:rgba(234,179,8,.12);color:#eab308;}
+.p-other{background:rgba(100,116,139,.12);color:#94a3b8;}
+.empty{padding:36px 16px;text-align:center;color:#4b6a9e;}
+.empty-icon{font-size:24px;margin-bottom:7px;opacity:.45;}
+.empty-title{font-size:12px;font-weight:bold;color:#64748b;margin-bottom:3px;}
+.empty-sub{font-size:11px;}
+
+/* ── SCROLLBAR ────────────────────────────────────────────────── */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:#1e3a6e;border-radius:3px;}
+
+/* ── MODALS ───────────────────────────────────────────────────── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;display:none;align-items:flex-start;justify-content:center;padding:26px 14px;overflow-y:auto;backdrop-filter:blur(2px);}
+.modal-overlay.open{display:flex;}
+.modal-box{background:#0a1f4e;border:1px solid #1e3a6e;border-top:3px solid #3b82f6;border-radius:13px;width:100%;max-width:1100px;display:flex;flex-direction:column;box-shadow:0 20px 70px rgba(0,0,0,.65);}
+.modal-box-md{max-width:740px;}
+.modal-header{padding:14px 20px;border-bottom:1px solid #1e3a6e;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.modal-header-left{display:flex;flex-direction:column;gap:2px;}
+.modal-title{font-size:14px;font-weight:bold;color:#f9fafb;}
+.modal-subtitle{font-size:11px;color:#4b6a9e;}
+.modal-header-right{display:flex;align-items:center;gap:8px;}
+.modal-body{padding:15px 20px;overflow-y:auto;max-height:58vh;}
+.modal-footer{padding:11px 20px;border-top:1px solid #1e3a6e;display:flex;align-items:center;gap:9px;flex-shrink:0;}
+.modal-footer-left{display:flex;gap:9px;flex:1;}
+.modal-footer-right{display:flex;gap:9px;}
+
+/* ── CONFIG TABLE ─────────────────────────────────────────────── */
+.cfg-table-wrap{overflow-x:auto;border:1px solid #1e3a6e;border-radius:7px;}
+.cfg-table{width:100%;border-collapse:collapse;}
+.cfg-table thead th{background:#0f1f3d;padding:8px 9px;text-align:left;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.07em;color:#64748b;border-bottom:1px solid #1e3a6e;white-space:nowrap;}
+.cfg-table thead th .th-note{font-size:9px;color:#374151;font-weight:normal;text-transform:none;letter-spacing:0;display:block;margin-top:1px;}
+.cfg-table tbody tr{border-bottom:1px solid rgba(30,58,110,.4);}
+.cfg-table tbody tr:hover{background:rgba(59,130,246,.04);}
+.cfg-table tbody td{padding:5px 7px;vertical-align:middle;}
+.cfg-table tbody tr:last-child{border-bottom:none;}
+.cfg-select{background:#111827;border:1px solid #1e3a6e;border-radius:5px;color:#f9fafb;padding:5px 7px;font-size:11px;font-family:Arial,sans-serif;width:100%;outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234b6a9e'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center;padding-right:22px;transition:border-color .15s;}
+.cfg-select:focus{border-color:#3b82f6;}
+.cfg-select option{background:#111827;}
+.cfg-input{background:#111827;border:1px solid #1e3a6e;border-radius:5px;color:#f9fafb;padding:5px 7px;font-size:11px;font-family:Arial,sans-serif;width:100%;outline:none;transition:border-color .15s;}
+.cfg-input:focus{border-color:#3b82f6;}
+.cfg-input::placeholder{color:#374151;}
+.cfg-row-num{font-size:10px;color:#374151;font-family:'Courier New',monospace;text-align:center;padding:0 6px !important;width:22px;}
+
+/* ── MULTI-SELECT ─────────────────────────────────────────────── */
+.ms-trigger{background:#111827;border:1px solid #1e3a6e;border-radius:5px;padding:4px 6px;font-size:11px;font-family:Arial,sans-serif;width:100%;cursor:pointer;min-height:28px;display:flex;flex-wrap:wrap;gap:3px;align-items:center;transition:border-color .15s;user-select:none;}
+.ms-trigger:hover{border-color:#3b82f6;}
+.ms-trigger.ms-open{border-color:#3b82f6;box-shadow:0 0 0 2px rgba(59,130,246,.14);}
+.ms-trigger.ms-disabled{opacity:.35;cursor:not-allowed;pointer-events:none;}
+.ms-placeholder{color:#4b6a9e;font-size:10px;}
+.ms-tag{background:rgba(59,130,246,.14);border:1px solid rgba(59,130,246,.35);color:#60a5fa;font-size:9px;padding:2px 6px;border-radius:10px;white-space:nowrap;max-width:155px;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;}
+.ms-tag.ms-tag-green{background:rgba(34,197,94,.11);border-color:rgba(34,197,94,.3);color:#22c55e;}
+.ms-dd-portal{font-family:Arial,sans-serif;font-size:11px;background:#111827;border:1px solid #3b82f6;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.65);overflow:hidden;}
+.ms-dd-search-wrap{padding:6px 7px;border-bottom:1px solid #1e3a6e;}
+.ms-dd-search{width:100%;background:#0a1f4e;border:1px solid #1e3a6e;border-radius:4px;color:#f9fafb;padding:4px 7px;font-size:11px;outline:none;font-family:Arial,sans-serif;}
+.ms-dd-search:focus{border-color:#3b82f6;}
+.ms-dd-list{max-height:160px;overflow-y:auto;}
+.ms-dd-empty{padding:10px;text-align:center;font-size:10px;color:#4b6a9e;}
+.ms-dd-item{display:flex;align-items:center;gap:7px;padding:6px 9px;cursor:pointer;color:#e2e8f0;transition:background .1s;}
+.ms-dd-item:hover{background:rgba(59,130,246,.1);}
+.ms-dd-item.ms-checked{background:rgba(59,130,246,.07);}
+.ms-dd-cb{font-size:13px;flex-shrink:0;color:#374151;line-height:1;}
+.ms-dd-item.ms-checked .ms-dd-cb{color:#3b82f6;}
+.ms-dd-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;}
+.ms-dd-used{font-size:9px;color:#22c55e;flex-shrink:0;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);padding:1px 5px;border-radius:8px;}
+.ms-dd-footer{padding:5px 9px;border-top:1px solid #1e3a6e;display:flex;justify-content:space-between;align-items:center;background:#0d1a35;}
+.ms-dd-count{font-size:9px;color:#4b6a9e;}
+.ms-dd-clear{font-size:9px;color:#ef4444;cursor:pointer;}
+.ms-dd-clear:hover{text-decoration:underline;}
+
+/* ── BUTTONS ──────────────────────────────────────────────────── */
+.btn-secondary{background:transparent;border:1px solid #1e3a6e;color:#94a3b8;padding:6px 13px;border-radius:6px;font-size:11px;cursor:pointer;font-family:Arial,sans-serif;transition:all .15s;display:flex;align-items:center;gap:5px;}
+.btn-secondary:hover{border-color:#3b82f6;color:#93c5fd;}
+.btn-add-row{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);color:#22c55e;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:bold;cursor:pointer;font-family:Arial,sans-serif;transition:all .15s;}
+.btn-add-row:hover{background:rgba(34,197,94,.15);border-color:#22c55e;}
+.btn-del{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#ef4444;padding:3px 7px;border-radius:4px;font-size:11px;cursor:pointer;font-family:Arial,sans-serif;}
+.btn-del:hover{background:rgba(239,68,68,.18);border-color:#ef4444;}
+.btn-dup{background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);color:#60a5fa;padding:3px 7px;border-radius:4px;font-size:12px;cursor:pointer;font-family:Arial,sans-serif;margin-right:2px;}
+.btn-dup:hover{background:rgba(59,130,246,.18);border-color:#3b82f6;}
+.btn-close{background:transparent;border:1px solid #1e3a6e;color:#64748b;width:27px;height:27px;border-radius:5px;font-size:13px;cursor:pointer;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.btn-close:hover{border-color:#ef4444;color:#ef4444;}
+.btn-save{background:linear-gradient(135deg,#3b82f6,#1d4ed8);border:none;color:#fff;padding:7px 15px;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;font-family:Arial,sans-serif;display:flex;align-items:center;gap:5px;box-shadow:0 2px 8px rgba(59,130,246,.3);}
+.btn-save:hover{background:linear-gradient(135deg,#2563eb,#1e3a8a);}
+
+/* ── DASHBOARD CHROME ─────────────────────────────────────────── */
+.config-summary{background:#0a1f4e;border:1px solid #1e3a6e;border-radius:7px;padding:7px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.cs-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#4b6a9e;font-weight:bold;white-space:nowrap;}
+.cs-chips{display:flex;flex-wrap:wrap;gap:4px;flex:1;}
+.cs-chip{font-size:10px;padding:2px 9px;border-radius:12px;border:1px solid #1e3a6e;background:rgba(59,130,246,.1);color:#60a5fa;font-weight:bold;}
+.cs-action{font-size:11px;color:#3b82f6;cursor:pointer;white-space:nowrap;text-decoration:underline;}
+.cs-action:hover{color:#60a5fa;}
+.filter-active-bar{background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.2);border-radius:6px;padding:4px 9px;font-size:10px;color:#60a5fa;display:none;align-items:center;gap:5px;}
+.filter-active-bar.visible{display:flex;}
+
+/* ── QTO DETAIL ───────────────────────────────────────────────── */
+.qto-detail-header{background:linear-gradient(135deg,rgba(59,130,246,.1),rgba(59,130,246,.03));border:1px solid rgba(59,130,246,.22);border-radius:9px;padding:12px 16px;display:flex;align-items:center;gap:12px;}
+.qto-dh-breadcrumb{font-size:10px;color:#4b6a9e;}
+.qto-dh-name{font-size:15px;font-weight:bold;color:#f9fafb;margin-top:2px;}
+.qto-dh-uom{font-size:10px;color:#60a5fa;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.22);padding:2px 9px;border-radius:10px;white-space:nowrap;}
+/* UOM override selector in detail header */
+.uom-select{background:#111827;border:1px solid rgba(59,130,246,.35);border-radius:6px;color:#60a5fa;padding:3px 8px;font-size:11px;font-family:Arial,sans-serif;outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;}
+.uom-select:focus{border-color:#3b82f6;}
+.uom-select option{background:#111827;color:#f9fafb;}
+.qto-stat-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px;}
+.qto-stat{background:#1e293b;border:1px solid #1e3a6e;border-radius:9px;padding:12px 15px;border-top:3px solid #3b82f6;}
+.qto-stat-label{font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.08em;color:#64748b;}
+.qto-stat-val{font-size:24px;font-weight:bold;font-family:'Courier New',monospace;color:#3b82f6;margin:3px 0 2px;}
+.qto-stat-sub{font-size:9px;color:#4b6a9e;}
+.qto-no-map-warn{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);border-radius:7px;padding:8px 12px;font-size:11px;color:#fcd34d;display:flex;align-items:center;gap:7px;}
+/* Column picker dropdown rows */
+.cp-row{display:flex;align-items:center;gap:7px;padding:6px 12px;transition:background .1s;cursor:default;}
+.cp-row:hover{background:rgba(59,130,246,.07);}
+.cp-row-locked{opacity:.45;}
+.cp-cb{width:15px;height:15px;border:1px solid #1e3a6e;border-radius:3px;background:#111827;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;transition:all .12s;font-size:9px;color:#3b82f6;}
+.cp-cb.on{background:rgba(59,130,246,.2);border-color:#3b82f6;}
+.cp-label{flex:1;font-size:11px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cp-label.locked-lbl{color:#4b6a9e;}
+.cp-arrows{display:flex;flex-direction:column;gap:1px;flex-shrink:0;}
+.cp-arr{background:none;border:1px solid #1e3a6e;color:#4b6a9e;font-size:8px;padding:1px 4px;border-radius:3px;cursor:pointer;line-height:1.3;transition:all .12s;}
+.cp-arr:hover{border-color:#3b82f6;color:#60a5fa;}
+/* QTO override modal */
+.qto-override-modal{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:600;display:none;align-items:center;justify-content:center;backdrop-filter:blur(2px);}
+.qto-override-modal.open{display:flex;}
+.qto-override-box{background:#0a1f4e;border:1px solid #1e3a6e;border-top:3px solid #f59e0b;border-radius:12px;width:min(980px,96vw);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.6);}
+.qto-override-hdr{padding:14px 18px;border-bottom:1px solid #1e3a6e;display:flex;align-items:center;justify-content:space-between;}
+.qto-override-body{padding:14px 18px;overflow-y:auto;flex:1;}
+.qto-override-src{font-size:11px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.qto-disc-section{border:1px solid #1e3a6e;border-radius:8px;overflow:hidden;margin-bottom:12px;}
+.qto-disc-section-hdr{background:#0f1f3d;padding:9px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;}
+.qto-disc-section-hdr:hover{background:#162840;}
+.qto-disc-section-body{}
+.qto-apply-all-bar{display:flex;align-items:center;gap:7px;padding:7px 12px;background:#0d1835;border-bottom:1px solid #1e3a6e;}
+.qto-apply-all-input{background:#111827;border:1px solid rgba(245,158,11,.4);border-radius:5px;color:#f9fafb;padding:4px 8px;font-size:11px;font-family:Arial,sans-serif;outline:none;flex:1;transition:border-color .15s;}
+.qto-apply-all-input:focus{border-color:#f59e0b;}
+.qto-apply-all-input::placeholder{color:#374151;}
+.qto-apply-all-btn{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.4);color:#f59e0b;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:bold;cursor:pointer;font-family:Arial,sans-serif;white-space:nowrap;transition:all .15s;}
+.qto-apply-all-btn:hover{background:rgba(245,158,11,.28);border-color:#f59e0b;}
+.qto-overridden-badge{font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);color:#f59e0b;white-space:nowrap;flex-shrink:0;}
+/* QTO blanks panel */
+.qto-blanks-panel{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.25);border-radius:9px;padding:12px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.qto-blanks-stat{display:flex;align-items:center;gap:8px;}
+.qto-blanks-num{font-size:22px;font-weight:bold;color:#f59e0b;font-family:'Courier New',monospace;}
+.qto-blanks-lbl{font-size:10px;color:#94a3b8;line-height:1.4;}
+/* Data quality card */
+.dq-card{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.25);border-radius:8px;padding:10px 14px;display:flex;align-items:flex-start;gap:12px;}
+.dq-icon{font-size:20px;flex-shrink:0;opacity:.8;}
+.dq-body{flex:1;min-width:0;}
+.dq-title{font-size:11px;font-weight:bold;color:#fcd34d;margin-bottom:4px;}
+.dq-stats{display:flex;flex-wrap:wrap;gap:8px;}
+.dq-stat{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);border-radius:6px;padding:4px 10px;font-size:10px;}
+.dq-stat-val{font-size:14px;font-weight:bold;color:#f59e0b;font-family:'Courier New',monospace;display:block;}
+.dq-stat-label{color:#94a3b8;font-size:9px;}
+.dq-ok{background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.22);border-radius:8px;padding:8px 12px;font-size:11px;color:#22c55e;display:flex;align-items:center;gap:6px;}
+/* Sort indicators on th */
+thead th.sortable{cursor:pointer;user-select:none;}
+thead th.sortable:hover{color:#93c5fd;}
+thead th.sort-asc::after{content:' ↑';font-size:9px;color:#3b82f6;}
+thead th.sort-desc::after{content:' ↓';font-size:9px;color:#3b82f6;}
+
+/* ── QTO MODAL TREE ───────────────────────────────────────────── */
+.qto-edit-main{display:flex;align-items:center;gap:6px;padding:7px 9px;background:#0f1f3d;border-bottom:1px solid #1e3a6e;}
+
+/* ── MISC ─────────────────────────────────────────────────────── */
+.notice-banner{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:7px;padding:8px 12px;display:flex;align-items:center;gap:8px;margin-bottom:11px;font-size:11px;color:#94a3b8;line-height:1.5;}
+.notice-banner strong{color:#f59e0b;}
+.cfg-empty{padding:26px 14px;text-align:center;}
+.cfg-empty-icon{font-size:24px;margin-bottom:7px;opacity:.38;}
+.cfg-empty-title{font-size:12px;font-weight:bold;color:#4b6a9e;margin-bottom:3px;}
+.cfg-empty-sub{font-size:11px;color:#374151;}
+.phase2-tag{font-size:9px;background:rgba(100,116,139,.2);color:#64748b;padding:1px 6px;border-radius:10px;font-weight:bold;border:1px solid #374151;}
+#toast{position:fixed;bottom:18px;right:18px;padding:10px 16px;border-radius:7px;font-size:13px;font-weight:bold;z-index:9999;opacity:0;pointer-events:none;transition:opacity .3s;}
+#toast.toast-success{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;box-shadow:0 4px 20px rgba(34,197,94,.4);}
+#toast.toast-info{background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;box-shadow:0 4px 20px rgba(59,130,246,.4);}
+#toast.toast-warn{background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;box-shadow:0 4px 20px rgba(245,158,11,.4);}
+@media print{.sidebar,.qto-right,.topbar{display:none !important;}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span style="font-size:13px;font-weight:bold;color:#f9fafb;letter-spacing:.02em;">📦 QTO Dashboard | Revizto Selection Inspector</span>
+  <div class="topbar-right">
+    <img src="sarah-white-logo.png" alt="" style="height:34px;object-fit:contain;" onerror="this.style.display='none'">
+  </div>
+</div>
+
+<div class="page-wrap">
+
+<!-- ══════════════ LEFT SIDEBAR ══════════════════════════════════ -->
+<aside class="sidebar">
+  <div class="section-header">Data Source</div>
+
+  <!-- Multi-file loader -->
+  <div class="file-load-btn" id="fileLoadBtn" title="Add another CSV">
+    <input type="file" accept=".csv" multiple id="reviztoInput" onchange="handleReviztoCSVs(event)">
+    <span style="font-size:16px;">📊</span>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:11px;font-weight:bold;color:#cbd5e1;">Load Revizto Inspector CSV</div>
+      <div style="font-size:9px;color:#4b6a9e;">Click to add one or more CSV files</div>
+    </div>
+    <span style="font-size:10px;color:#3b82f6;">＋</span>
+  </div>
+
+  <!-- Loaded files list -->
+  <div id="fileList" style="display:flex;flex-direction:column;gap:3px;"></div>
+
+  <div style="display:flex;align-items:center;gap:6px;padding:1px 7px;">
+    <div class="status-dot" id="dot-revizto" style="width:7px;height:7px;border-radius:50%;background:#374151;flex-shrink:0;"></div>
+    <span style="font-size:10px;color:#64748b;" id="lbl-revizto">No CSV loaded</span>
+  </div>
+
+  <hr class="s-divider">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 7px 3px;">
+    <span style="font-size:10px;font-weight:bold;letter-spacing:.12em;text-transform:uppercase;color:#4b6a9e;">Configuration</span>
+    <input type="file" accept=".xlsx,.xls" id="bulkConfigInput" style="display:none;" onchange="handleBulkConfigXLSX(event)">
+    <button class="btn-bulk-cfg" onclick="document.getElementById('bulkConfigInput').click()">📋 Bulk .xlsx</button>
+  </div>
+  <button class="btn-configure" onclick="openDiscModal()">⚙️ Configure Project Discipline<span class="cfg-badge" id="cfgBadge">0 rules</span></button>
+  <button class="btn-configure" onclick="openAuthModal()">🏢 Configure Model Authors<span class="cfg-badge" id="authBadge">0 orgs</span></button>
+  <button class="btn-configure" onclick="openPrecModal()">🗺️ Configure Precinct<span class="cfg-badge" id="precBadge">not set</span></button>
+  <button class="btn-configure" onclick="openQTOModal()">📐 Configure QTO Categories<span class="cfg-badge" id="qtoBadge">not set</span></button>
+
+  <hr class="s-divider">
+  <div class="section-header">Filters <span style="font-size:8px;font-weight:normal;color:#374151;">(shift+click = range)</span></div>
+
+  <div class="filter-group">
+    <div class="filter-label"><span class="fl-dot fl-blue"></span>Discipline</div>
+    <div class="chip-scroll" id="chipDiscipline"><span style="font-size:10px;color:#374151;">Configure first</span></div>
+  </div>
+  <div class="filter-group">
+    <div class="filter-label"><span class="fl-dot fl-amber"></span>Model Author</div>
+    <div class="chip-scroll" id="chipAuthor"><span style="font-size:10px;color:#374151;">Configure first</span></div>
+  </div>
+  <div class="filter-group">
+    <div class="filter-label"><span class="fl-dot fl-teal"></span>Author Category</div>
+    <div class="chip-scroll" id="chipAuthorCat"><span style="font-size:10px;color:#374151;">Configure disciplines first</span></div>
+  </div>
+  <div class="filter-group" id="filterPrecinctGroup" style="display:none;">
+    <div class="filter-label"><span class="fl-dot fl-purple"></span>Precinct</div>
+    <div class="chip-scroll" id="chipPrecinct"></div>
+  </div>
+
+  <!-- Dynamic filters -->
+  <div id="dynFilterList" style="display:flex;flex-direction:column;gap:4px;"></div>
+  <button class="btn-add-dyn" onclick="openAddFilterPicker(event)">＋ Add Column Filter</button>
+
+  <button class="btn-clear-all" onclick="clearAllFilters()">✕  Clear All Filters</button>
+
+  <div style="margin-top:auto;padding:7px 4px 0;font-size:9px;color:#1e3a6e;text-align:center;line-height:1.4;">QTO Dashboard · v3.4d</div>
+</aside>
+
+<!-- ══════════════ CENTRE MAIN ════════════════════════════════════ -->
+<main class="main" id="mainPane">
+  <div class="idle-screen" id="idleScreen">
+    <div class="idle-icon">📦</div>
+    <div class="idle-title">Quantity Takeoff Dashboard</div>
+    <div class="idle-sub">Load one or more Revizto Inspector CSV exports and configure disciplines to begin. Select a QTO subcategory from the right panel to view quantity totals.</div>
+  </div>
+
+  <!-- Project Summary -->
+  <div id="projectSummary" style="display:none;flex-direction:column;gap:15px;">
+    <div class="filter-active-bar" id="filterActiveBar">🔍 <span id="filterActiveDesc"></span><span style="margin-left:auto;cursor:pointer;color:#ef4444;" onclick="clearAllFilters()">Clear ✕</span></div>
+    <div class="kpi-row">
+      <div class="kpi k-blue"><div class="kpi-label">Total Elements</div><div class="kpi-val" id="kpi-total">—</div><div class="kpi-sub">all loaded CSVs</div></div>
+      <div class="kpi k-green"><div class="kpi-label">Mapped</div><div class="kpi-val" id="kpi-mapped">—</div><div class="kpi-sub">matched by rules</div></div>
+      <div class="kpi k-amber"><div class="kpi-label">Unmapped</div><div class="kpi-val" id="kpi-unmapped">—</div><div class="kpi-sub">no matching rule</div></div>
+      <div class="kpi k-purple"><div class="kpi-label">Disciplines</div><div class="kpi-val" id="kpi-disciplines">—</div><div class="kpi-sub">configured</div></div>
+      <div class="kpi k-teal"><div class="kpi-label">Source Files</div><div class="kpi-val" id="kpi-sourcefiles">—</div><div class="kpi-sub">in data</div></div>
+    </div>
+    <!-- QTO blanks panel -->
+    <div id="qtoBlanksPanel" style="display:none;"></div>
+    <div class="two-col">
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">📊 Elements by Discipline</div></div>
+        <div id="chartDiscDonut" style="height:270px;"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">📋 Discipline Mapping Summary</div>
+          <div class="panel-actions"><button class="btn-sm" onclick="exportSummaryCSV()">⬇ CSV</button></div>
+        </div>
+        <div class="tbl-wrap">
+          <table><thead><tr><th>Discipline</th><th>Author Cat.</th><th>Organisation</th><th>Source File(s)</th><th>Elements</th><th>Workset</th><th>Precinct</th><th>Phase</th></tr></thead>
+          <tbody id="summaryBody"><tr><td colspan="8"><div class="empty"><div class="empty-icon">⚙️</div><div class="empty-title">Configure disciplines to see breakdown</div></div></td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QTO Detail View -->
+  <div id="qtoDetailView" style="display:none;flex-direction:column;gap:14px;">
+    <div class="qto-detail-header">
+      <div style="flex:1;">
+        <div class="qto-dh-breadcrumb" id="qtoDetailBreadcrumb"></div>
+        <div class="qto-dh-name" id="qtoDetailName"></div>
+      </div>
+      <span class="qto-dh-uom" id="qtoDetailUOM"></span>
+      <button class="btn-secondary" style="font-size:11px;" onclick="clearQTOSelection()">← Back to Summary</button>
+    </div>
+    <div id="qtoMappingWarn" class="qto-no-map-warn" style="display:none;">⚠️ <span id="qtoMappingWarnMsg"></span></div>
+    <div class="qto-stat-row" id="qtoStatRow" style="grid-template-columns:1fr 1fr 1fr;">
+      <div class="qto-stat"><div class="qto-stat-label">Element Count</div><div class="qto-stat-val" id="qtoStatCount">—</div><div class="qto-stat-sub">matching elements</div></div>
+      <div class="qto-stat" id="qtoSumCard" style="border-top-color:#374151;">
+        <div class="qto-stat-label" id="qtoSumLabel">Sum Column</div>
+        <div class="qto-stat-val" id="qtoStatSum" style="color:#4b6a9e;">—</div>
+        <div class="qto-stat-sub" id="qtoSumColDesc">configure in QTO settings</div>
+      </div>
+      <div class="qto-stat" id="qtoTonnageCard" style="border-top-color:#374151;display:none;">
+        <div class="qto-stat-label">Steel Tonnage</div>
+        <div class="qto-stat-val" id="qtoStatTonnage" style="color:#f59e0b;">—</div>
+        <div class="qto-stat-sub" id="qtoTonnageDesc">Volume × 7.85 (Consultant rows only)</div>
+      </div>
+      <div class="qto-stat" id="qtoInstalledCard" style="border-top-color:#22c55e;display:none;">
+        <div class="qto-stat-label">% Installed on Site</div>
+        <div class="qto-stat-val" id="qtoStatInstalledPct" style="color:#22c55e;">—</div>
+        <div class="qto-stat-sub" id="qtoInstalledDesc">installed / total</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">📋 QTO Element Table</div>
+        <div class="panel-actions">
+          <button class="btn-sm" onclick="renderQTODetailTable()" title="Refresh table after CSV reload">↻ Refresh</button>
+          <div style="position:relative;">
+            <button class="btn-sm" id="btnToggleColPicker" onclick="toggleColPicker(event)" title="Show/hide columns">⊞ Columns</button>
+            <div id="colPickerBar" style="display:none;position:absolute;top:calc(100% + 4px);right:0;z-index:300;width:260px;background:#111827;border:1px solid #3b82f6;border-radius:9px;box-shadow:0 8px 28px rgba(0,0,0,.65);overflow:hidden;">
+              <div style="padding:8px 12px;background:#0d1a35;border-bottom:1px solid #1e3a6e;font-size:9px;color:#4b6a9e;text-transform:uppercase;letter-spacing:.08em;">Toggle &amp; Reorder · 🔒 locked · ↑↓ to reorder</div>
+              <div id="colPickerList" style="max-height:280px;overflow-y:auto;padding:4px 0;"></div>
+            </div>
+          </div>
+          <button class="btn-sm" onclick="exportQTODetailCSV()">⬇ CSV</button>
+        </div>
+      </div>
+      <!-- Data quality card (shown when sum column has missing/zero values) -->
+      <div id="dqCard" style="display:none;margin:10px 14px 0;"></div>
+      <div class="tbl-wrap-tall">
+        <table><thead id="qtoDetailThead"></thead><tbody id="qtoDetailTbody"></tbody><tfoot id="qtoDetailTfoot"></tfoot></table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ══════════════ RIGHT QTO PANEL ══════════════════════════════ -->
+<aside class="qto-right">
+  <div class="qto-right-header">
+    <div class="qto-right-title">📐 QTO Categories</div>
+    <div class="qto-right-sub" id="qtoRightSub">Grouped by Discipline · click sub to view totals</div>
+  </div>
+  <div class="qto-right-body" id="qtoRightBody">
+    <div class="qto-right-empty">
+      <div class="qto-right-empty-icon">📐</div>
+      <div class="qto-right-empty-txt">Load CSV with a <strong>QTO Categories</strong> column and configure disciplines to populate.</div>
+      <span class="qto-right-empty-action" onclick="openQTOModal()">Configure QTO →</span>
+    </div>
+  </div>
+  <div class="qto-right-footer" id="qtoRightFooter" style="display:none;">
+    <button class="btn-secondary" style="width:100%;justify-content:center;font-size:11px;" onclick="clearQTOSelection()">✕ Clear Selection</button>
+  </div>
+</aside>
+</div><!-- /page-wrap -->
+
+<!-- ════ MODAL 1 — DISCIPLINE ════ -->
+<div class="modal-overlay" id="discModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="modal-title">⚙️ Configure Project Discipline</div>
+        <div class="modal-subtitle">Map source files → disciplines. Empty workset/phase = match all.</div>
+      </div>
+      <div class="modal-header-right">
+        <input type="file" accept=".xlsx,.xls,.csv" id="loadDiscInput" style="display:none;" onchange="loadDiscFile(event)">
+        <button class="btn-secondary" onclick="document.getElementById('loadDiscInput').click()">📂 Load</button>
+        <button class="btn-secondary" onclick="downloadAllConfigXLSX()">⬇ xlsx</button>
+        <button class="btn-close" onclick="closeDiscModal()">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="notice-banner" id="discNoFileNotice" style="display:none;">⚠️ <strong>No CSV loaded.</strong> Load revizto_inspector.csv first.</div>
+      <div class="cfg-table-wrap">
+        <table class="cfg-table" style="min-width:840px;">
+          <thead><tr>
+            <th style="width:22px;">#</th>
+            <th style="min-width:130px;">Discipline<span class="th-note">Architectural, Structural…</span></th>
+            <th style="min-width:100px;">Author Cat.<span class="th-note">Consultant / Sub</span></th>
+            <th style="min-width:200px;">Source File(s)<span class="th-note">🟢 = used elsewhere</span></th>
+            <th style="min-width:155px;">Workset(s)<span class="th-note">empty = All</span></th>
+            <th style="min-width:155px;">Phase(s)<span class="th-note">empty = All</span></th>
+            <th style="width:65px;"></th>
+          </tr></thead>
+          <tbody id="discTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div class="modal-footer-left"><button class="btn-add-row" onclick="addDiscRow()">+ Add Row</button></div>
+      <div class="modal-footer-right">
+        <button class="btn-secondary" onclick="closeDiscModal()">Cancel</button>
+        <button class="btn-save" onclick="saveDiscSettings()">💾 Save Disciplines</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODAL 2 — AUTHORS ════ -->
+<div class="modal-overlay" id="authModal">
+  <div class="modal-box modal-box-md">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="modal-title">🏢 Configure Model Authors</div>
+        <div class="modal-subtitle">Map source files to an Organisation name.</div>
+      </div>
+      <div class="modal-header-right">
+        <button class="btn-secondary" onclick="downloadAllConfigXLSX()">⬇ xlsx</button>
+        <button class="btn-close" onclick="closeAuthModal()">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="notice-banner" id="authNoFileNotice" style="display:none;">⚠️ <strong>No CSV loaded.</strong></div>
+      <div class="cfg-table-wrap">
+        <table class="cfg-table" style="min-width:480px;">
+          <thead><tr>
+            <th style="width:22px;">#</th>
+            <th style="min-width:220px;">Source File(s)</th>
+            <th style="min-width:190px;">Organisation Name<span class="th-note">e.g. Arup, Norman Bluescope…</span></th>
+            <th style="width:65px;"></th>
+          </tr></thead>
+          <tbody id="authTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div class="modal-footer-left"><button class="btn-add-row" onclick="addAuthRow()">+ Add Row</button></div>
+      <div class="modal-footer-right">
+        <button class="btn-secondary" onclick="closeAuthModal()">Cancel</button>
+        <button class="btn-save" onclick="saveAuthSettings()">💾 Save Authors</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODAL 3 — PRECINCT ════ -->
+<div class="modal-overlay" id="precModal">
+  <div class="modal-box modal-box-md">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="modal-title">🗺️ Configure Precinct <span class="phase2-tag" style="font-size:10px;vertical-align:middle;">Optional</span></div>
+        <div class="modal-subtitle">Segregate models by project option or zone.</div>
+      </div>
+      <div class="modal-header-right">
+        <button class="btn-secondary" onclick="downloadAllConfigXLSX()">⬇ xlsx</button>
+        <button class="btn-close" onclick="closePrecModal()">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="notice-banner" id="precNoFileNotice" style="display:none;">⚠️ <strong>No CSV loaded.</strong></div>
+      <div class="cfg-table-wrap">
+        <table class="cfg-table" style="min-width:480px;">
+          <thead><tr>
+            <th style="width:22px;">#</th>
+            <th style="min-width:170px;">Precinct Name<span class="th-note">e.g. Option A, North Zone…</span></th>
+            <th style="min-width:220px;">Source File(s)</th>
+            <th style="width:65px;"></th>
+          </tr></thead>
+          <tbody id="precTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div class="modal-footer-left"><button class="btn-add-row" onclick="addPrecRow()">+ Add Precinct</button></div>
+      <div class="modal-footer-right">
+        <button class="btn-secondary" onclick="closePrecModal()">Cancel</button>
+        <button class="btn-save" onclick="savePrecSettings()">💾 Save Precincts</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODAL 4 — QTO CATEGORIES ════ -->
+<div class="modal-overlay" id="qtoModal">
+  <div class="modal-box modal-box-md">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="modal-title">📐 Configure QTO Categories</div>
+        <div class="modal-subtitle">QTO categories come from the <strong>QTO Categories</strong> column in your CSV. Set a Sum Column per subcategory for totalling quantities.</div>
+      </div>
+      <div class="modal-header-right">
+        <button class="btn-secondary" onclick="downloadAllConfigXLSX()">⬇ xlsx</button>
+        <button class="btn-close" onclick="closeQTOModal()">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <!-- Status bar -->
+      <div style="background:#111827;border:1px solid #1e3a6e;border-radius:7px;padding:9px 12px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+        <span style="font-size:11px;font-weight:bold;color:#cbd5e1;">CSV QTO Columns:</span>
+        <span id="qtoColSubBadge" style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(100,116,139,.2);color:#64748b;border:1px solid #374151;">QTO Cat: —</span>
+        <span id="qtoColUomBadge" style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(100,116,139,.2);color:#64748b;border:1px solid #374151;">QTO UoM: —</span>
+        <span id="qtoDimColsBadge" style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(100,116,139,.2);color:#64748b;border:1px solid #374151;">Dim cols: —</span>
+        <span style="margin-left:auto;font-size:10px;color:#374151;" id="qtoTreeSummary"></span>
+      </div>
+      <div id="qtoEditTree">
+        <div class="cfg-empty"><div class="cfg-empty-icon">📐</div><div class="cfg-empty-title">Load CSV to populate</div><div class="cfg-empty-sub">Add a <em>QTO Categories</em> column via Revizto custom properties, then reload CSV.</div></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div class="modal-footer-left"><span style="font-size:10px;color:#374151;align-self:center;">Sum Column and UoM override are saved per subcategory.</span></div>
+      <div class="modal-footer-right">
+        <button class="btn-secondary" onclick="closeQTOModal()">Cancel</button>
+        <button class="btn-save" onclick="saveQTOSettings()">💾 Save QTO Config</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QTO Category Override Modal -->
+<div class="qto-override-modal" id="qtoOverrideModal">
+  <div class="qto-override-box">
+    <div class="qto-override-hdr">
+      <div>
+        <div style="font-size:14px;font-weight:bold;color:#f9fafb;">📐 Override QTO Categories</div>
+        <div style="font-size:11px;color:#4b6a9e;margin-top:2px;">Assign a QTO Category to elements where the column is blank or &lt;Not Defined&gt;. Applies in-memory only — does not modify your CSV.</div>
+      </div>
+      <button class="btn-close" onclick="closeQTOOverrideModal()">✕</button>
+    </div>
+    <div class="qto-override-body" id="qtoOverrideBody"></div>
+    <div style="padding:11px 18px;border-top:1px solid #1e3a6e;display:flex;justify-content:flex-end;gap:9px;">
+      <button class="btn-secondary" onclick="closeQTOOverrideModal()">Cancel</button>
+      <button class="btn-save" onclick="applyQTOOverrides()">✓ Apply Overrides</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════════
+// Multi-file tracking
+let loadedFiles = []; // [{name, rows, headers}]
+let reviztoRawRows = [], reviztoHeaders = [];
+let sfColName=null, wsColName=null, phColName=null, catColName=null;
+let nameColName=null, typeColName=null; // Name, Type Name columns
+let qtoSubCol=null, qtoUomCol=null, installedCol=null;
+let uniqueSFList=[], sfWorksets={}, sfPhases={};
+let uniqueCatList=[], numericCols=[], dimCols=[];
+// dupColGroups: Map<baseName, [col1, col2, ...]> for columns with identical or near-identical names
+let dupColGroups = new Map();
+// Per-view state for QTO table
+let qtoTableVisibleCols = new Set(); // set of colKeys that are toggled ON
+let qtoTableAllCols = [];            // ordered array of {key, label, locked, numeric}
+let qtoSortState = {col:null, dir:'asc'}; // sort state
+let qtoUomOverride = '';             // UoM selected in detail header selector
+let dqFilterMode = null;             // null | 'blank' | 'zero' | 'problem' — filters table to problem rows
+
+// Config
+let discRows=[],discRowCtr=0,savedDisc=[];
+let authRows=[],authRowCtr=0,savedAuth=[];
+let precRows=[],precRowCtr=0,savedPrec=[];
+let savedQTO=[]; // [{discipline, subs:[{name,uom,sumColumn,uomOverride}]}]
+
+// Dashboard
+let mappedRows=[], unmappedRows=[];
+
+// Filters
+let activeDisc=new Set(), activeAuth=new Set(), activeAuthCat=new Set(), activePrec=new Set();
+let dynamicFilters=[]; // [{id,colName,activeValues:Set,allValues:[]}]
+let dynFilterCtr=0;
+let lastChipClick={disc:null,auth:null,authcat:null,prec:null};
+
+// QTO selection
+let activeQTOSub=null; // {discipline,sub:{name,uom,sumColumn}}
+let currentQTODetailRows=[];
+let activeMsDropdown=null;
+
+// ══════════════════════════════════════════════════════════════════
+// CSV PARSER
+// ══════════════════════════════════════════════════════════════════
+function parseCSV(text){
+  const rows=[]; const lines=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+  for(const line of lines){
+    if(!line.trim())continue;
+    const row=[];let inQ=false,cur='';
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(ch==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else{inQ=!inQ;}}
+      else if(ch===','&&!inQ){row.push(cur.trim());cur='';}
+      else{cur+=ch;}
+    }
+    row.push(cur.trim());rows.push(row);
+  }
+  return rows;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MULTI-CSV LOAD
+// ══════════════════════════════════════════════════════════════════
+function handleReviztoCSVs(e){
+  const files=[...e.target.files];e.target.value='';if(!files.length)return;
+  let pending=files.length;
+  files.forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const rows=parseCSV(ev.target.result);
+      if(rows.length<2){showToast(`${file.name}: empty or invalid`,'warn');pending--;if(!pending)finalizeCSVLoad();return;}
+      const headers=rows[0].map(h=>String(h||'').trim());
+      const dataRows=rows.slice(1).filter(r=>r.some(v=>v)).map(r=>{
+        const obj={};headers.forEach((h,i)=>{obj[h]=String(r[i]||'').trim();});return obj;
+      });
+      // Remove existing entry with same name
+      loadedFiles=loadedFiles.filter(f=>f.name!==file.name);
+      loadedFiles.push({name:file.name,rows:dataRows,headers});
+      pending--;
+      if(!pending)finalizeCSVLoad();
+    };
+    reader.readAsText(file);
+  });
+}
+
+function removeFile(name){
+  loadedFiles=loadedFiles.filter(f=>f.name!==name);
+  finalizeCSVLoad();
+}
+
+function finalizeCSVLoad(){
+  // Merge all loaded files
+  if(!loadedFiles.length){
+    reviztoRawRows=[];reviztoHeaders=[];
+    clearDetectedCols();
+    renderFileList();
+    document.getElementById('dot-revizto').style.background='#374151';
+    setText('lbl-revizto','No CSV loaded');
+    return;
+  }
+  // Union of headers, merge rows
+  const hdrSet=new Set();
+  loadedFiles.forEach(f=>f.headers.forEach(h=>hdrSet.add(h)));
+  reviztoHeaders=[...hdrSet];
+  reviztoRawRows=loadedFiles.flatMap(f=>f.rows.map(r=>{
+    const merged={};reviztoHeaders.forEach(h=>{merged[h]=r[h]||'';});return merged;
+  }));
+  detectColumns();
+  buildSourceFileMaps();
+  detectNumericAndDimCols();
+  buildQTOTreeFromCSV();
+  renderFileList();
+  const totalRows=reviztoRawRows.length;
+  document.getElementById('dot-revizto').style.background='#22c55e';
+  setText('lbl-revizto',`${loadedFiles.length} file${loadedFiles.length>1?'s':''} · ${totalRows.toLocaleString()} rows`);
+  document.getElementById('lbl-revizto').style.color='#22c55e';
+  if(document.getElementById('discModal').classList.contains('open'))renderDiscTable();
+  if(document.getElementById('authModal').classList.contains('open'))renderAuthTable();
+  if(document.getElementById('precModal').classList.contains('open'))renderPrecTable();
+  if(document.getElementById('qtoModal').classList.contains('open'))renderQTOEditTree();
+  renderQTORightPanel();
+  renderQTOBlanksPanel();
+  refreshDynFilterValues();
+  if(savedDisc.length)runDashboard();
+  showToast(`${loadedFiles.length} CSV${loadedFiles.length>1?'s':''} · ${totalRows.toLocaleString()} rows`,'success');
+}
+
+function renderFileList(){
+  const el=document.getElementById('fileList');
+  el.innerHTML=loadedFiles.map(f=>`
+    <div class="file-item">
+      <span class="file-item-name" title="${esc(f.name)}">${esc(f.name)}</span>
+      <span class="file-item-rows">${f.rows.length.toLocaleString()} rows</span>
+      <button class="file-item-del" onclick="removeFile('${esc(f.name)}')" title="Remove">✕</button>
+    </div>`).join('');
+}
+
+function detectColumns(){
+  sfColName=reviztoHeaders.find(h=>h.toLowerCase().includes('source file'))||null;
+  wsColName=reviztoHeaders.find(h=>h.toLowerCase().includes('workset'))||null;
+  phColName=reviztoHeaders.find(h=>h.toLowerCase().includes('phase'))||null;
+  // Category: exact "Category" first, then any non-QTO column with "category"
+  catColName=reviztoHeaders.find(h=>/^category$/i.test(h))||
+             reviztoHeaders.find(h=>!/qto/i.test(h)&&h.toLowerCase().includes('category'))||null;
+  // Name: exact "Name" or "Element Name", avoid Type Name
+  nameColName=reviztoHeaders.find(h=>/^name$/i.test(h))||
+              reviztoHeaders.find(h=>h.toLowerCase()==='element name')||
+              reviztoHeaders.find(h=>!/type/i.test(h)&&h.toLowerCase().includes('name'))||null;
+  // Type Name
+  typeColName=reviztoHeaders.find(h=>h.toLowerCase()==='type name')||
+              reviztoHeaders.find(h=>h.toLowerCase().includes('type name'))||
+              reviztoHeaders.find(h=>h.toLowerCase().includes('family and type'))||
+              reviztoHeaders.find(h=>/^type$/i.test(h))||null;
+  qtoSubCol=reviztoHeaders.find(h=>/^qto\s*categor/i.test(h))||
+            reviztoHeaders.find(h=>/qto.*categor/i.test(h)&&!/sub/i.test(h))||
+            reviztoHeaders.find(h=>/qto.*sub/i.test(h))||
+            reviztoHeaders.find(h=>/qto/i.test(h)&&/categor/i.test(h))||null;
+  qtoUomCol=reviztoHeaders.find(h=>/qto.*uom/i.test(h))||null;
+  installedCol=reviztoHeaders.find(h=>h.toLowerCase().includes('installed on site'))||null;
+}
+
+function clearDetectedCols(){
+  sfColName=wsColName=phColName=catColName=nameColName=typeColName=qtoSubCol=qtoUomCol=installedCol=null;
+  uniqueSFList=[];sfWorksets={};sfPhases={};uniqueCatList=[];numericCols=[];dimCols=[];dupColGroups=new Map();
+}
+
+function detectNumericAndDimCols(){
+  const DIM_KEYWORDS=['length','width','depth','area','weight','height','volume','perimeter','thickness','size'];
+  numericCols=reviztoHeaders.filter(h=>{
+    const vals=reviztoRawRows.map(r=>r[h]).filter(v=>v!=='').slice(0,40);
+    if(!vals.length)return false;
+    return vals.filter(v=>!isNaN(parseFloat(v))&&isFinite(v)).length/vals.length>0.6;
+  });
+  dimCols=numericCols.filter(h=>!/qto/i.test(h)&&DIM_KEYWORDS.some(kw=>h.toLowerCase().includes(kw)));
+
+  // Detect truly duplicate column name groups (same header appearing multiple times in CSV)
+  // This happens in Revizto exports when the same parameter comes from multiple sources
+  dupColGroups=new Map();
+  const normCount=new Map();
+  reviztoHeaders.forEach(h=>{const n=h.trim().toLowerCase();normCount.set(n,(normCount.get(n)||0)+1);});
+  normCount.forEach((cnt,norm)=>{
+    if(cnt<2)return;
+    const cols=reviztoHeaders.filter(h=>h.trim().toLowerCase()===norm);
+    // Only group as dimension-dedup if all are numeric
+    if(cols.every(c=>numericCols.includes(c)))dupColGroups.set(norm,cols);
+  });
+}
+
+function buildSourceFileMaps(){
+  uniqueSFList=[];sfWorksets={};sfPhases={};uniqueCatList=[];
+  const sfSet=new Set(),catSet=new Set();
+  reviztoRawRows.forEach(row=>{
+    const sf=sfColName?(row[sfColName]||'').trim():'';
+    if(sf&&!sfSet.has(sf)){sfSet.add(sf);uniqueSFList.push(sf);sfWorksets[sf]=new Set();sfPhases[sf]=new Set();}
+    if(sf){
+      if(wsColName&&row[wsColName])sfWorksets[sf].add(row[wsColName].trim());
+      if(phColName&&row[phColName])sfPhases[sf].add(row[phColName].trim());
+    }
+    if(catColName&&row[catColName]){const c=row[catColName].trim();if(c&&!catSet.has(c)){catSet.add(c);uniqueCatList.push(c);}}
+  });
+  uniqueSFList.sort();uniqueCatList.sort();
+  for(const sf of uniqueSFList){sfWorksets[sf]=[...sfWorksets[sf]].sort();sfPhases[sf]=[...sfPhases[sf]].sort();}
+}
+
+function getUnionSet(sfs,dataMap){
+  const r=new Set();(sfs||[]).forEach(sf=>{(dataMap[sf]||[]).forEach(v=>r.add(v));});return[...r].sort();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// QTO TREE FROM CSV
+// ══════════════════════════════════════════════════════════════════
+function buildQTOTreeFromCSV(){
+  // Not needed for tree — tree is built discipline × qtoSubCol at render time
+}
+
+function getQTOTree(){
+  // Build tree: for each discipline in savedDisc, find all unique qtoSubCol values in mapped rows for that discipline
+  if(!qtoSubCol||!savedDisc.length)return [];
+  const discList=[...new Set(savedDisc.map(r=>r.discipline))].sort();
+  return discList.map(disc=>{
+    const discRows=mappedRows.filter(r=>r._discipline===disc);
+    const subMap=new Map();
+    discRows.forEach(row=>{
+      const sub=(row[qtoSubCol]||'').trim();
+      if(!sub)return;
+      const uom=qtoUomCol?(row[qtoUomCol]||'').trim():'';
+      if(!subMap.has(sub))subMap.set(sub,uom||'');
+    });
+    const subs=[...subMap.entries()].map(([name,uom])=>{
+      const saved=getQTOSavedSub(disc,name);
+      return{name,uom:saved?.uomOverride||uom,sumColumn:saved?.sumColumn||'',uomOverride:saved?.uomOverride||''};
+    }).sort((a,b)=>a.name.localeCompare(b.name));
+    return{discipline:disc,subs};
+  }).filter(m=>m.subs.length);
+}
+
+function getQTOSavedSub(discipline,subName){
+  const mc=savedQTO.find(m=>m.discipline===discipline);
+  return mc?mc.subs.find(s=>s.name===subName):null;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MODAL 1 — DISCIPLINE
+// ══════════════════════════════════════════════════════════════════
+const DISCIPLINES=['Architectural','Mechanical','Structural','Electrical','Fire Protection','Hydraulics','Civil','Landscape'];
+const AUTHOR_CATS=['Consultant','Subcontractor'];
+
+function openDiscModal(){closeMsDropdown();document.getElementById('discModal').classList.add('open');document.getElementById('discNoFileNotice').style.display=reviztoRawRows.length?'none':'flex';if(!discRows.length&&savedDisc.length)discRows=savedDisc.map(r=>({...r,sourceFiles:[...r.sourceFiles],worksets:[...r.worksets],phases:[...r.phases]}));renderDiscTable();}
+function closeDiscModal(){closeMsDropdown();document.getElementById('discModal').classList.remove('open');}
+function addDiscRow(){discRowCtr++;discRows.push({id:discRowCtr,discipline:'',authorCategory:'',sourceFiles:[],worksets:[],phases:[]});renderDiscTable();}
+function dupDiscRow(id){const o=discRows.find(r=>r.id===id);if(!o)return;discRowCtr++;discRows.splice(discRows.indexOf(o)+1,0,{id:discRowCtr,discipline:o.discipline,authorCategory:o.authorCategory,sourceFiles:[...o.sourceFiles],worksets:[...o.worksets],phases:[...o.phases]});closeMsDropdown();renderDiscTable();showToast('Duplicated','info');}
+function delDiscRow(id){discRows=discRows.filter(r=>r.id!==id);renderDiscTable();}
+function updateDiscField(id,field,val){const r=discRows.find(r=>r.id===id);if(r)r[field]=val;}
+
+function renderDiscTable(){
+  const tbody=document.getElementById('discTableBody');
+  if(!discRows.length){tbody.innerHTML=`<tr><td colspan="7"><div class="cfg-empty"><div class="cfg-empty-icon">📋</div><div class="cfg-empty-title">No rules yet</div><div class="cfg-empty-sub">Click "+ Add Row"</div></div></td></tr>`;return;}
+  tbody.innerHTML='';
+  discRows.forEach((row,idx)=>{
+    const used=new Set(discRows.filter(r=>r.id!==row.id).flatMap(r=>r.sourceFiles||[]));
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="cfg-row-num">${idx+1}</td>
+      <td>${buildStdSelect('discipline',row.id,row.discipline,DISCIPLINES,'updateDiscField','-- Discipline --')}</td>
+      <td>${buildStdSelect('authorCategory',row.id,row.authorCategory,AUTHOR_CATS,'updateDiscField','-- Category --')}</td>
+      <td>${buildMsTrigger(row.id,'sourceFiles',row.sourceFiles,'-- Select File(s) --',!reviztoRawRows.length||!sfColName,used,'disc')}</td>
+      <td>${buildMsTrigger(row.id,'worksets',row.worksets,row.sourceFiles.length?'— All Worksets —':'— Select First —',!row.sourceFiles.length,new Set(),'disc')}</td>
+      <td>${buildMsTrigger(row.id,'phases',row.phases,row.sourceFiles.length?'— All Phases —':'— Select First —',!row.sourceFiles.length,new Set(),'disc')}</td>
+      <td style="text-align:center;white-space:nowrap;"><button class="btn-dup" onclick="dupDiscRow(${row.id})">⎘</button><button class="btn-del" onclick="delDiscRow(${row.id})">✕</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function saveDiscSettings(){
+  if(!discRows.length){showToast('Add at least one rule','warn');return;}
+  if(discRows.some(r=>!r.discipline||!r.sourceFiles.length)){showToast('All rows need Discipline and Source File','warn');return;}
+  savedDisc=discRows.map(r=>({...r,sourceFiles:[...r.sourceFiles],worksets:[...r.worksets],phases:[...r.phases]}));
+  localStorage.setItem('qto_disc_config',JSON.stringify(savedDisc));
+  updateDiscBadge();buildDisciplineChips();buildAuthorCatChips();if(reviztoRawRows.length)runDashboard();closeDiscModal();
+  showToast(`${savedDisc.length} rule${savedDisc.length!==1?'s':''} saved`,'success');
+}
+
+function loadDiscFile(e){
+  const file=e.target.files[0];e.target.value='';if(!file)return;
+  const ext=file.name.toLowerCase().split('.').pop();
+  if(ext==='csv'){
+    const reader=new FileReader();
+    reader.onload=ev=>{loadDiscFromCSVText(ev.target.result);};
+    reader.readAsText(file);
+  } else {
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+        const discSheet=wb.SheetNames.find(s=>/disc/i.test(s))||wb.SheetNames[0];
+        const ws=wb.Sheets[discSheet];
+        const csv=XLSX.utils.sheet_to_csv(ws);
+        loadDiscFromCSVText(csv);
+      }catch(err){showToast('Failed to read file','warn');}
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+function loadDiscFromCSVText(text){
+  const rows=parseCSV(text);if(rows.length<2){showToast('Empty/invalid','warn');return;}
+  const hdr=rows[0].map(h=>h.toLowerCase().trim());
+  const dI=hdr.findIndex(h=>h.includes('discipline'));
+  const aI=hdr.findIndex(h=>h.includes('author'));
+  const sfI=hdr.findIndex(h=>h.includes('source file'));
+  const wsI=hdr.findIndex(h=>h.includes('workset'));
+  const phI=hdr.findIndex(h=>h.includes('phase'));
+  discRows=rows.slice(1).filter(r=>r.some(v=>v)).map(r=>{
+    discRowCtr++;
+    const sfRaw=sfI>=0?(r[sfI]||''):'';const wsRaw=wsI>=0?(r[wsI]||''):'';const phRaw=phI>=0?(r[phI]||''):'';
+    return{id:discRowCtr,discipline:dI>=0?r[dI].trim():'',authorCategory:aI>=0?r[aI].trim():'',
+      sourceFiles:sfRaw?sfRaw.split('|').map(s=>s.trim()).filter(Boolean):[],
+      worksets:(wsRaw&&wsRaw!=='All')?wsRaw.split('|').map(s=>s.trim()).filter(Boolean):[],
+      phases:(phRaw&&phRaw!=='All')?phRaw.split('|').map(s=>s.trim()).filter(Boolean):[],
+    };
+  });
+  renderDiscTable();showToast(`Loaded ${discRows.length} rules`,'success');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MODAL 2 — AUTHORS
+// ══════════════════════════════════════════════════════════════════
+function openAuthModal(){closeMsDropdown();document.getElementById('authModal').classList.add('open');document.getElementById('authNoFileNotice').style.display=reviztoRawRows.length?'none':'flex';if(!authRows.length&&savedAuth.length)authRows=savedAuth.map(r=>({...r,sourceFiles:[...r.sourceFiles]}));renderAuthTable();}
+function closeAuthModal(){closeMsDropdown();document.getElementById('authModal').classList.remove('open');}
+function addAuthRow(){authRowCtr++;authRows.push({id:authRowCtr,sourceFiles:[],orgName:''});renderAuthTable();}
+function dupAuthRow(id){const o=authRows.find(r=>r.id===id);if(!o)return;authRowCtr++;authRows.splice(authRows.indexOf(o)+1,0,{id:authRowCtr,sourceFiles:[...o.sourceFiles],orgName:o.orgName});closeMsDropdown();renderAuthTable();}
+function delAuthRow(id){authRows=authRows.filter(r=>r.id!==id);renderAuthTable();}
+function updateAuthOrgName(id,val){const r=authRows.find(r=>r.id===id);if(r)r.orgName=val;}
+function renderAuthTable(){
+  const tbody=document.getElementById('authTableBody');
+  if(!authRows.length){tbody.innerHTML=`<tr><td colspan="4"><div class="cfg-empty"><div class="cfg-empty-icon">🏢</div><div class="cfg-empty-title">No author mappings</div></div></td></tr>`;return;}
+  tbody.innerHTML='';
+  authRows.forEach((row,idx)=>{
+    const used=new Set(authRows.filter(r=>r.id!==row.id).flatMap(r=>r.sourceFiles||[]));
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="cfg-row-num">${idx+1}</td>
+      <td>${buildMsTrigger(row.id,'sourceFiles',row.sourceFiles,'-- Select File(s) --',!reviztoRawRows.length||!sfColName,used,'auth')}</td>
+      <td><input class="cfg-input" type="text" placeholder="Organisation name…" value="${esc(row.orgName)}" oninput="updateAuthOrgName(${row.id},this.value)"></td>
+      <td style="text-align:center;white-space:nowrap;"><button class="btn-dup" onclick="dupAuthRow(${row.id})">⎘</button><button class="btn-del" onclick="delAuthRow(${row.id})">✕</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+function saveAuthSettings(){
+  if(authRows.some(r=>!r.orgName.trim())){showToast('All rows need an Organisation Name','warn');return;}
+  savedAuth=authRows.map(r=>({...r,sourceFiles:[...r.sourceFiles]}));
+  localStorage.setItem('qto_auth_config',JSON.stringify(savedAuth));
+  updateAuthBadge();buildAuthorChips();if(reviztoRawRows.length)runDashboard();closeAuthModal();
+  showToast(`${savedAuth.length} mapping${savedAuth.length!==1?'s':''} saved`,'success');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MODAL 3 — PRECINCT
+// ══════════════════════════════════════════════════════════════════
+function openPrecModal(){closeMsDropdown();document.getElementById('precModal').classList.add('open');document.getElementById('precNoFileNotice').style.display=reviztoRawRows.length?'none':'flex';if(!precRows.length&&savedPrec.length)precRows=savedPrec.map(r=>({...r,sourceFiles:[...r.sourceFiles]}));renderPrecTable();}
+function closePrecModal(){closeMsDropdown();document.getElementById('precModal').classList.remove('open');}
+function addPrecRow(){precRowCtr++;precRows.push({id:precRowCtr,precinctName:'',sourceFiles:[]});renderPrecTable();}
+function dupPrecRow(id){const o=precRows.find(r=>r.id===id);if(!o)return;precRowCtr++;precRows.splice(precRows.indexOf(o)+1,0,{id:precRowCtr,precinctName:o.precinctName,sourceFiles:[...o.sourceFiles]});closeMsDropdown();renderPrecTable();}
+function delPrecRow(id){precRows=precRows.filter(r=>r.id!==id);renderPrecTable();}
+function updatePrecName(id,val){const r=precRows.find(r=>r.id===id);if(r)r.precinctName=val;}
+function renderPrecTable(){
+  const tbody=document.getElementById('precTableBody');
+  if(!precRows.length){tbody.innerHTML=`<tr><td colspan="4"><div class="cfg-empty"><div class="cfg-empty-icon">🗺️</div><div class="cfg-empty-title">No precincts</div><div class="cfg-empty-sub">Leave empty for single-precinct project</div></div></td></tr>`;return;}
+  tbody.innerHTML='';
+  precRows.forEach((row,idx)=>{
+    const used=new Set(precRows.filter(r=>r.id!==row.id).flatMap(r=>r.sourceFiles||[]));
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="cfg-row-num">${idx+1}</td>
+      <td><input class="cfg-input" type="text" placeholder="Precinct name…" value="${esc(row.precinctName)}" oninput="updatePrecName(${row.id},this.value)"></td>
+      <td>${buildMsTrigger(row.id,'sourceFiles',row.sourceFiles,'-- Select File(s) --',!reviztoRawRows.length||!sfColName,used,'prec')}</td>
+      <td style="text-align:center;white-space:nowrap;"><button class="btn-dup" onclick="dupPrecRow(${row.id})">⎘</button><button class="btn-del" onclick="delPrecRow(${row.id})">✕</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+function savePrecSettings(){
+  if(precRows.length&&precRows.some(r=>!r.precinctName.trim())){showToast('All precincts need a name','warn');return;}
+  savedPrec=precRows.map(r=>({...r,sourceFiles:[...r.sourceFiles]}));
+  localStorage.setItem('qto_prec_config',JSON.stringify(savedPrec));
+  updatePrecBadge();buildPrecinctChips();if(reviztoRawRows.length)runDashboard();closePrecModal();
+  showToast(savedPrec.length?`${savedPrec.length} precinct${savedPrec.length!==1?'s':''} saved`:'Cleared','info');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MODAL 4 — QTO CATEGORIES (discipline-based tree)
+// ══════════════════════════════════════════════════════════════════
+function openQTOModal(){document.getElementById('qtoModal').classList.add('open');renderQTOEditTree();}
+function closeQTOModal(){document.getElementById('qtoModal').classList.remove('open');}
+
+function renderQTOEditTree(){
+  // Update badges
+  const mkBadge=(label,val)=>{const ok=!!val;return`font-size:10px;padding:2px 8px;border-radius:10px;background:${ok?'rgba(34,197,94,.12)':'rgba(100,116,139,.2)'};color:${ok?'#22c55e':'#64748b'};border:1px solid ${ok?'rgba(34,197,94,.3)':'#374151'};`;};
+  const sb=document.getElementById('qtoColSubBadge');if(sb){sb.textContent=`QTO Cat: ${qtoSubCol||'—'}`;sb.style.cssText=mkBadge('',qtoSubCol);}
+  const ub=document.getElementById('qtoColUomBadge');if(ub){ub.textContent=`QTO UoM: ${qtoUomCol||'—'}`;ub.style.cssText=mkBadge('',qtoUomCol);}
+  const db=document.getElementById('qtoDimColsBadge');if(db){db.textContent=`Dim cols: ${dimCols.length?dimCols.join(', '):'none detected'}`;db.style.cssText=mkBadge('',dimCols.length);}
+  const ts=document.getElementById('qtoTreeSummary');
+  const tree=getQTOTree();
+  const totalSubs=tree.reduce((a,m)=>a+m.subs.length,0);
+  if(ts)ts.textContent=tree.length?`${tree.length} disciplines · ${totalSubs} subcategories`:'';
+
+  const container=document.getElementById('qtoEditTree');
+  if(!reviztoRawRows.length){container.innerHTML=`<div class="cfg-empty"><div class="cfg-empty-icon">📊</div><div class="cfg-empty-title">Load revizto_inspector.csv first</div></div>`;return;}
+  if(!qtoSubCol){container.innerHTML=`<div class="cfg-empty"><div class="cfg-empty-icon">⚠️</div><div class="cfg-empty-title">No QTO Categories column detected</div><div class="cfg-empty-sub">Add a custom property named <strong>QTO Categories</strong> in Revizto and re-export the CSV.</div></div>`;return;}
+  if(!savedDisc.length){container.innerHTML=`<div class="cfg-empty"><div class="cfg-empty-icon">⚙️</div><div class="cfg-empty-title">Configure Project Disciplines first</div><div class="cfg-empty-sub">QTO categories are grouped by discipline. Configure and save disciplines, then reopen this modal.</div></div>`;return;}
+  if(!tree.length){container.innerHTML=`<div class="cfg-empty"><div class="cfg-empty-icon">📐</div><div class="cfg-empty-title">No QTO values found</div><div class="cfg-empty-sub">Ensure elements have <strong>QTO Categories</strong> values set in Revizto.</div></div>`;return;}
+
+  container.innerHTML='';
+  const wrap=document.createElement('div');wrap.style.cssText='border:1px solid #1e3a6e;border-radius:7px;overflow:hidden;';
+  const pillClass={Architectural:'p-arch',Mechanical:'p-mech',Structural:'p-struc',Electrical:'p-elec','Fire Protection':'p-fire',Hydraulics:'p-hyd',Civil:'p-civil',Landscape:'p-land'};
+
+  tree.forEach((mc,idx)=>{
+    // Main — discipline header
+    const mainDiv=document.createElement('div');mainDiv.className='qto-edit-main';mainDiv.style.borderBottom='1px solid #1e3a6e';
+    const pc=pillClass[mc.discipline]||'p-other';
+    mainDiv.innerHTML=`<span class="pill ${pc}" style="flex-shrink:0;">${esc(mc.discipline)}</span><span style="font-size:9px;color:#374151;margin-left:auto;">${mc.subs.length} sub${mc.subs.length!==1?'s':''}</span>`;
+    wrap.appendChild(mainDiv);
+    // Sub column headers
+    const hdrDiv=document.createElement('div');
+    hdrDiv.style.cssText='display:grid;grid-template-columns:1fr 64px 64px 160px;gap:5px;padding:4px 9px 4px 18px;background:#0d1a35;border-bottom:1px solid rgba(30,58,110,.4);';
+    hdrDiv.innerHTML=`<span style="font-size:9px;color:#374151;text-transform:uppercase;letter-spacing:.06em;">Subcategory (from CSV)</span><span style="font-size:9px;color:#374151;text-transform:uppercase;letter-spacing:.06em;">CSV UoM</span><span style="font-size:9px;color:#374151;text-transform:uppercase;letter-spacing:.06em;">Override UoM</span><span style="font-size:9px;color:#374151;text-transform:uppercase;letter-spacing:.06em;">Sum Column</span>`;
+    wrap.appendChild(hdrDiv);
+    mc.subs.forEach((sub,si)=>{
+      const subDiv=document.createElement('div');
+      subDiv.style.cssText=`display:grid;grid-template-columns:1fr 64px 64px 160px;gap:5px;padding:5px 9px 5px 18px;background:#111827;border-bottom:${si<mc.subs.length-1?'1px solid rgba(30,58,110,.25)':'1px solid #1e3a6e'};align-items:center;`;
+      const selOpts=`<option value="">— none —</option>`+numericCols.map(c=>`<option value="${esc(c)}"${sub.sumColumn===c?' selected':''}>${esc(c)}</option>`).join('');
+      const savedSub=getQTOSavedSub(mc.discipline,sub.name)||{};
+      const uomOverride=savedSub.uomOverride||'';
+      subDiv.innerHTML=`
+        <span style="font-size:11px;color:#e2e8f0;display:flex;align-items:center;gap:4px;"><span style="color:#1e3a6e;font-size:11px;">└</span>${esc(sub.name)}</span>
+        <span style="font-size:10px;color:#60a5fa;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.14);padding:1px 5px;border-radius:8px;text-align:center;">${esc(sub.uom||'—')}</span>
+        <input class="cfg-input" type="text" placeholder="Override…" style="font-size:10px;text-align:center;" value="${esc(uomOverride)}"
+          data-disc="${esc(mc.discipline)}" data-sub="${esc(sub.name)}" data-field="uomOverride" onchange="updateQTOSubField(this)">
+        <select class="cfg-select" style="font-size:10px;" data-disc="${esc(mc.discipline)}" data-sub="${esc(sub.name)}" data-field="sumColumn" onchange="updateQTOSubField(this)">${selOpts}</select>`;
+      wrap.appendChild(subDiv);
+    });
+  });
+  container.appendChild(wrap);
+}
+
+function updateQTOSubField(el){
+  const disc=el.dataset.disc,sub=el.dataset.sub,field=el.dataset.field,val=el.value;
+  let mc=savedQTO.find(m=>m.discipline===disc);
+  if(!mc){mc={discipline:disc,subs:[]};savedQTO.push(mc);}
+  let s=mc.subs.find(s=>s.name===sub);
+  if(!s){s={name:sub,uom:'',sumColumn:'',uomOverride:''};mc.subs.push(s);}
+  s[field]=val;
+}
+
+function saveQTOSettings(){
+  // Collect current values from the live DOM selects/inputs
+  document.querySelectorAll('[data-disc][data-sub][data-field]').forEach(el=>{
+    const disc=el.dataset.disc,sub=el.dataset.sub,field=el.dataset.field,val=el.value;
+    let mc=savedQTO.find(m=>m.discipline===disc);
+    if(!mc){mc={discipline:disc,subs:[]};savedQTO.push(mc);}
+    let s=mc.subs.find(s=>s.name===sub);
+    if(!s){s={name:sub,uom:'',sumColumn:'',uomOverride:''};mc.subs.push(s);}
+    s[field]=val;
+  });
+  localStorage.setItem('qto_qto_config',JSON.stringify(savedQTO));
+  updateQTOBadge();renderQTORightPanel();closeQTOModal();
+  const total=savedQTO.reduce((a,m)=>a+m.subs.length,0);
+  showToast(`QTO config saved (${savedQTO.length} disciplines, ${total} subs)`,'success');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// RIGHT QTO PANEL
+// ══════════════════════════════════════════════════════════════════
+function renderQTORightPanel(){
+  const body=document.getElementById('qtoRightBody');
+  const footer=document.getElementById('qtoRightFooter');
+  const tree=mappedRows.length?getQTOTree():[];
+  if(!tree.length){
+    let msg='';
+    if(!reviztoRawRows.length)msg='Load revizto_inspector.csv to populate.';
+    else if(!savedDisc.length)msg='Configure disciplines to group QTO categories.';
+    else if(!qtoSubCol)msg='No QTO Categories column detected. Add it via Revizto custom properties.';
+    else msg='No QTO values found in current data.';
+    body.innerHTML=`<div class="qto-right-empty"><div class="qto-right-empty-icon">📐</div><div class="qto-right-empty-txt">${msg}</div><span class="qto-right-empty-action" onclick="openQTOModal()">Configure QTO →</span></div>`;
+    footer.style.display='none';return;
+  }
+  body.innerHTML='';
+  const pillClass={Architectural:'p-arch',Mechanical:'p-mech',Structural:'p-struc',Electrical:'p-elec','Fire Protection':'p-fire',Hydraulics:'p-hyd',Civil:'p-civil',Landscape:'p-land'};
+  tree.forEach((mc,mIdx)=>{
+    const mainDiv=document.createElement('div');mainDiv.className='qto-rt-main';
+    const arrowId=`rtArrow_${mIdx}`,subsId=`rtSubs_${mIdx}`;
+    const pc=pillClass[mc.discipline]||'p-other';
+    mainDiv.innerHTML=`<span class="qto-rt-arrow" id="${arrowId}">▶</span><span class="pill ${pc}" style="font-size:9px;flex-shrink:0;">${esc(mc.discipline)}</span><span class="qto-rt-main-name" style="margin-left:2px;" title="${esc(mc.discipline)}"></span><span class="qto-rt-count">${mc.subs.length}</span>`;
+    mainDiv.addEventListener('click',()=>{
+      const s=document.getElementById(subsId);const a=document.getElementById(arrowId);
+      if(s){s.classList.toggle('open');a.textContent=s.classList.contains('open')?'▼':'▶';}
+    });
+    body.appendChild(mainDiv);
+    const subsDiv=document.createElement('div');subsDiv.className='qto-rt-subs';subsDiv.id=subsId;
+    mc.subs.forEach((sub)=>{
+      const isSelected=activeQTOSub&&activeQTOSub.discipline===mc.discipline&&activeQTOSub.sub.name===sub.name;
+      const subDiv=document.createElement('div');
+      subDiv.className='qto-rt-sub'+(isSelected?' selected':'');
+      subDiv.innerHTML=`<span class="qto-rt-sub-name" title="${esc(sub.name)}">${esc(sub.name)}</span><span class="qto-rt-uom">${esc(sub.uom||'—')}</span>`;
+      subDiv.addEventListener('click',()=>selectQTOSub(mc.discipline,sub));
+      subsDiv.appendChild(subDiv);
+    });
+    body.appendChild(subsDiv);
+  });
+  footer.style.display=activeQTOSub?'':'none';
+}
+
+function selectQTOSub(discipline,sub){
+  if(activeQTOSub&&activeQTOSub.discipline===discipline&&activeQTOSub.sub.name===sub.name){clearQTOSelection();return;}
+  activeQTOSub={discipline,sub};
+  qtoSortState={col:null,dir:'asc'};
+  qtoUomOverride='';
+  qtoTableVisibleCols=new Set();
+  dqFilterMode=null;
+  document.querySelectorAll('.qto-rt-sub').forEach(el=>el.classList.remove('selected'));
+  document.querySelectorAll('.qto-rt-sub').forEach(el=>{
+    if(el.querySelector('.qto-rt-sub-name')?.title===sub.name)el.classList.add('selected');
+  });
+  // Auto-expand parent
+  const tree=getQTOTree();
+  const mIdx=tree.findIndex(m=>m.discipline===discipline);
+  if(mIdx>=0){const s=document.getElementById(`rtSubs_${mIdx}`);const a=document.getElementById(`rtArrow_${mIdx}`);if(s&&!s.classList.contains('open')){s.classList.add('open');if(a)a.textContent='▼';}}
+  document.getElementById('qtoRightFooter').style.display='';
+  showQTODetailView();
+}
+
+function clearQTOSelection(){
+  activeQTOSub=null;
+  document.querySelectorAll('.qto-rt-sub').forEach(el=>el.classList.remove('selected'));
+  document.getElementById('qtoRightFooter').style.display='none';
+  setText('qtoRightSub','Grouped by Discipline · click sub to view totals');
+  showProjectSummaryView();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CENTRE PANE SWITCHING
+// ══════════════════════════════════════════════════════════════════
+function showProjectSummaryView(){
+  document.getElementById('idleScreen').style.display='none';
+  document.getElementById('projectSummary').style.display='flex';
+  document.getElementById('qtoDetailView').style.display='none';
+}
+function showQTODetailView(){
+  if(!activeQTOSub)return;
+  document.getElementById('idleScreen').style.display='none';
+  document.getElementById('projectSummary').style.display='none';
+  document.getElementById('qtoDetailView').style.display='flex';
+  const {discipline,sub}=activeQTOSub;
+  setText('qtoDetailBreadcrumb',discipline+' ›');
+  setText('qtoDetailName',sub.name);
+  setText('qtoDetailUOM',sub.uom||'No UoM');
+  setText('qtoRightSub',`Viewing: ${sub.name}`);
+  renderQTODetailTable();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// QTO DETAIL TABLE
+// ══════════════════════════════════════════════════════════════════
+
+// getDedupDims: for each duplicate group, return max non-zero value per row.
+// Returns a Map<baseName → value> for each group that has a non-zero value.
+function getDedupDims(row){
+  const result=new Map();
+  dupColGroups.forEach((cols,baseName)=>{
+    const vals=cols.map(c=>parseFloat(row[c]||0)).filter(v=>!isNaN(v)&&v>0);
+    if(vals.length)result.set(baseName,Math.max(...vals));
+  });
+  return result;
+}
+
+// Get sum of all dedup dim values for a row (for the stat card)
+function getDedupDimTotal(row){
+  let total=0;
+  getDedupDims(row).forEach(v=>{total+=v;});
+  return total;
+}
+
+// Build the ordered column list for the QTO table
+// ── DEFAULT COLUMN ORDER — edit here to change defaults (currently line ~1253) ──
+// Order below = table column order. locked=always shown. defaultOn=visible on first load.
+function buildQTOTableCols(hasSumCol,sumCol,currentUom,applyTonnage,volCol){
+  const cols=[];
+  const addLocked=(key,label,numeric=false)=>cols.push({key,label,locked:true,numeric,visible:true});
+  const addOpt=(key,label,numeric=false,defaultOn=false)=>cols.push({key,label,locked:false,numeric,
+    visible:qtoTableVisibleCols.size>0?qtoTableVisibleCols.has(key):defaultOn});
+
+  addLocked('_discipline','Discipline');                             // 1. DISCIPLINE (locked)
+  addLocked('_authorCat','Author Cat.');                            // 2. AUTHOR CAT. (locked)
+  if(catColName)   addOpt(catColName,'Category',false,true);        // 3. CATEGORY (default ON)
+  if(typeColName)  addOpt(typeColName,'Type Name',false,true);      // 4. TYPE NAME (default ON)
+  // 5. ASSOCIATED UOM / SUM COLUMN — added below (default ON)
+
+  // Off by default — available in column picker
+  if(nameColName)  addOpt(nameColName,'Name',false,false);
+  if(sfColName)    addOpt(sfColName,'Source File',false,false);
+  addOpt('_orgName','Organisation',false,false);
+  addOpt('_precinct','Precinct',false,false);
+  dupColGroups.forEach((colArr,baseName)=>{
+    addOpt(`_dedup:${baseName}`,`${capitalize(baseName)} (dedup)`,true,false);
+  });
+
+  // 5. Sum column (default ON)
+  if(hasSumCol){
+    const dimKw=['volume','area','length','weight','height','depth','perimeter','thickness'].find(k=>sumCol.toLowerCase().includes(k));
+    const sumLabel=dimKw?`Total ${capitalize(dimKw)}`:`Total (${currentUom||sumCol})`;
+    addOpt(`_sum:${sumCol}`,sumLabel,true,true);
+  }
+  if(applyTonnage&&volCol) addOpt('_tonnage','Tonnage (t)',true,true);
+
+  // Remaining numeric cols — off by default
+  const usedKeys=new Set(cols.map(c=>c.key));
+  numericCols.filter(h=>h!==sumCol&&!dupColGroups.has(h.trim().toLowerCase())).forEach(h=>{
+    if(!usedKeys.has(h))addOpt(h,h,true,false);
+  });
+  return cols;
+}
+
+// Persist visible-cols state (called when user toggles a chip)
+function toggleQTOCol(key){
+  // On first interaction, seed the visible set from the current rendered state
+  // (prevents all defaultOn cols disappearing when size goes 0→1)
+  if(qtoTableVisibleCols.size===0&&qtoTableAllCols.length){
+    qtoTableAllCols.filter(c=>!c.locked&&c.visible).forEach(c=>qtoTableVisibleCols.add(c.key));
+  }
+  if(qtoTableVisibleCols.has(key))qtoTableVisibleCols.delete(key);
+  else qtoTableVisibleCols.add(key);
+  renderColPickerChips(qtoTableAllCols);
+  rerenderQTOTable();
+}
+
+function toggleColPicker(e){
+  if(e)e.stopPropagation();
+  const bar=document.getElementById('colPickerBar');if(!bar)return;
+  const isOpen=bar.style.display!=='none';
+  bar.style.display=isOpen?'none':'';
+  if(!isOpen){
+    setTimeout(()=>{
+      document.addEventListener('click',function dismiss(ev){
+        if(!bar.contains(ev.target)&&!ev.target.closest('#btnToggleColPicker')){
+          bar.style.display='none';
+          document.removeEventListener('click',dismiss);
+        }
+      });
+    },10);
+  }
+}
+
+function setSortCol(key){
+  if(qtoSortState.col===key)qtoSortState.dir=qtoSortState.dir==='asc'?'desc':'asc';
+  else{qtoSortState.col=key;qtoSortState.dir='asc';}
+  rerenderQTOTable();
+}
+
+// Render column picker as dropdown list with checkboxes + up/down arrows
+function renderColPickerChips(cols){
+  const list=document.getElementById('colPickerList');if(!list)return;
+  const optCols=cols.filter(c=>!c.locked);
+  list.innerHTML='';
+  cols.filter(c=>c.locked).forEach(col=>{
+    const row=document.createElement('div');row.className='cp-row cp-row-locked';
+    row.innerHTML=`<span class="cp-cb on" style="cursor:default;font-size:9px;">✓</span><span class="cp-label locked-lbl">🔒 ${esc(col.label)}</span>`;
+    list.appendChild(row);
+  });
+  if(optCols.length){const sep=document.createElement('div');sep.style.cssText='border-top:1px solid #1e3a6e;margin:3px 0;';list.appendChild(sep);}
+  optCols.forEach((col,i)=>{
+    const row=document.createElement('div');row.className='cp-row';
+    const cb=document.createElement('span');cb.className='cp-cb'+(col.visible?' on':'');cb.textContent=col.visible?'✓':'';
+    cb.addEventListener('click',e=>{e.stopPropagation();toggleQTOCol(col.key);});
+    const lbl=document.createElement('span');lbl.className='cp-label';lbl.textContent=col.label;lbl.title=col.label;lbl.style.cursor='pointer';
+    lbl.addEventListener('click',e=>{e.stopPropagation();toggleQTOCol(col.key);});
+    const arrows=document.createElement('div');arrows.className='cp-arrows';
+    if(i>0){const up=document.createElement('button');up.className='cp-arr';up.textContent='↑';up.title='Move up';up.addEventListener('click',e=>{e.stopPropagation();moveQTOCol(col.key,-1);});arrows.appendChild(up);}
+    if(i<optCols.length-1){const dn=document.createElement('button');dn.className='cp-arr';dn.textContent='↓';dn.title='Move down';dn.addEventListener('click',e=>{e.stopPropagation();moveQTOCol(col.key,1);});arrows.appendChild(dn);}
+    row.appendChild(cb);row.appendChild(lbl);row.appendChild(arrows);
+    list.appendChild(row);
+  });
+}
+
+// Move a column up (-1) or down (+1) in qtoTableAllCols
+function moveQTOCol(key,dir){
+  const lockedCount=qtoTableAllCols.filter(c=>c.locked).length;
+  const idx=qtoTableAllCols.findIndex(c=>c.key===key);if(idx<0)return;
+  const swapIdx=idx+dir;
+  if(swapIdx<lockedCount||swapIdx>=qtoTableAllCols.length)return;
+  [qtoTableAllCols[idx],qtoTableAllCols[swapIdx]]=[qtoTableAllCols[swapIdx],qtoTableAllCols[idx]];
+  renderColPickerChips(qtoTableAllCols);
+  rerenderQTOTable();
+}
+
+// ── QTO Blanks Panel (summary page) ──────────────────────────────
+// qtoOverrides: Map<rowIndex→categoryString> for in-memory overrides
+let qtoOverrides=new Map();
+
+function renderQTOBlanksPanel(){
+  const panel=document.getElementById('qtoBlanksPanel');if(!panel)return;
+  if(!qtoSubCol||!reviztoRawRows.length){panel.style.display='none';return;}
+  const NOT_DEF=['<not defined>','not defined',''];
+  const blankRows=reviztoRawRows.filter(r=>{const v=(r[qtoSubCol]||'').trim().toLowerCase();return NOT_DEF.includes(v);});
+  if(!blankRows.length){panel.style.display='none';return;}
+  panel.style.display='block';
+  const total=reviztoRawRows.length;
+  panel.innerHTML=`<div class="qto-blanks-panel">
+    <div style="font-size:18px;opacity:.7;">⚠️</div>
+    <div class="qto-blanks-stat"><span class="qto-blanks-num">${blankRows.length.toLocaleString()}</span><span class="qto-blanks-lbl">elements have no<br>QTO Category assigned<br><span style="color:#374151;">${Math.round(blankRows.length/total*100)}% of ${total.toLocaleString()} total</span></span></div>
+    <button class="btn-save" style="margin-left:auto;background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:0 2px 8px rgba(245,158,11,.3);" onclick="openQTOOverrideModal()">✎ Assign / Edit QTO Categories</button>
+  </div>`;
+}
+
+// ── QTO Override Modal ────────────────────────────────────────────
+function openQTOOverrideModal(){
+  if(!qtoSubCol){showToast('No QTO Categories column detected in CSV','warn');return;}
+  const NOT_DEF=['<not defined>','not defined',''];
+  const body=document.getElementById('qtoOverrideBody');if(!body)return;
+
+  // All known QTO categories (from non-blank rows, including previously overridden values)
+  const knownCats=[...new Set([
+    ...reviztoRawRows.map(r=>(r[qtoSubCol]||'').trim()).filter(v=>v&&!NOT_DEF.includes(v.toLowerCase())),
+    ...[...qtoOverrides.values()]
+  ])].sort();
+  const catOpts=`<option value="">— leave blank —</option>`+knownCats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+
+  // Include both blank rows AND previously-overridden rows (so they can be re-edited)
+  // An "overridden" row is one whose group key exists in qtoOverrides
+  const targetRows=reviztoRawRows.filter(r=>{
+    const v=(r[qtoSubCol]||'').trim().toLowerCase();
+    const isBlank=NOT_DEF.includes(v);
+    // Also include rows whose group key is in qtoOverrides (was previously overridden)
+    const cat=(catColName?r[catColName]:'')?.trim()||'Unknown Category';
+    const type=(nameColName?r[nameColName]:'')?.trim()||(typeColName?r[typeColName]:'')?.trim()||'Unknown';
+    const key=`${cat}|||${type}`;
+    const isOverridden=qtoOverrides.has(key);
+    return isBlank||isOverridden;
+  });
+
+  // Group: key = Cat|||Type → {cat, type, count, sf (first source file seen), isOverridden, currentVal}
+  const groups=new Map();
+  targetRows.forEach(r=>{
+    const cat=(catColName?r[catColName]:'')?.trim()||'Unknown Category';
+    const type=(nameColName?r[nameColName]:'')?.trim()||(typeColName?r[typeColName]:'')?.trim()||'Unknown';
+    const key=`${cat}|||${type}`;
+    if(!groups.has(key)){
+      const sf=sfColName?(r[sfColName]||'').trim():'';
+      const isOverridden=qtoOverrides.has(key);
+      const currentVal=qtoOverrides.get(key)||(r[qtoSubCol]||'').trim();
+      groups.set(key,{cat,type,count:0,sf,isOverridden,currentVal});
+    }
+    groups.get(key).count++;
+  });
+
+  if(!groups.size){
+    body.innerHTML=`<div class="cfg-empty"><div class="cfg-empty-icon">✅</div><div class="cfg-empty-title">No blank or overridden QTO Categories</div><div class="cfg-empty-sub">All elements have QTO Categories assigned from the CSV.</div></div>`;
+    document.getElementById('qtoOverrideModal').classList.add('open');return;
+  }
+
+  // Map each group to its discipline using savedDisc source file mapping
+  const sfToDiscipline={};
+  savedDisc.forEach(rule=>{(rule.sourceFiles||[]).forEach(sf=>{if(!sfToDiscipline[sf])sfToDiscipline[sf]=rule.discipline;});});
+
+  // Build discipline → groups map
+  const discGroups=new Map(); // discipline → [{key,g}]
+  groups.forEach((g,key)=>{
+    const disc=sfToDiscipline[g.sf]||'Unassigned';
+    if(!discGroups.has(disc))discGroups.set(disc,{disc,groups:[]});
+    discGroups.get(disc).groups.push({key,g});
+  });
+  const discOrder=['Architectural','Mechanical','Structural','Electrical','Fire Protection','Hydraulics','Civil','Landscape','Unassigned'];
+  const sortedDiscs=[...discGroups.keys()].sort((a,b)=>{const ai=discOrder.indexOf(a),bi=discOrder.indexOf(b);return(ai<0?99:ai)-(bi<0?99:bi);});
+
+  const pillClass={Architectural:'p-arch',Mechanical:'p-mech',Structural:'p-struc',Electrical:'p-elec','Fire Protection':'p-fire',Hydraulics:'p-hyd',Civil:'p-civil',Landscape:'p-land'};
+  const totalGroups=groups.size;
+  const totalEls=[...groups.values()].reduce((a,g)=>a+g.count,0);
+  const overriddenCount=[...groups.values()].filter(g=>g.isOverridden).length;
+
+  body.innerHTML=`<div style="font-size:11px;color:#64748b;margin-bottom:12px;">
+    ${totalGroups} element groups (${totalEls.toLocaleString()} elements) · ${overriddenCount} already overridden
+    <span style="color:#374151;margin-left:8px;">Grouped by discipline. Custom text takes priority over dropdown.</span>
+  </div>`;
+
+  sortedDiscs.forEach((disc,di)=>{
+    const dg=discGroups.get(disc);
+    const pc=pillClass[disc]||'p-other';
+    const sectionId=`qtoDiscSection_${di}`;
+    const bodyId=`qtoDiscBody_${di}`;
+    const applyAllId=`applyAllInput_${di}`;
+
+    const section=document.createElement('div');section.className='qto-disc-section';
+
+    // Discipline header
+    const hdr=document.createElement('div');hdr.className='qto-disc-section-hdr';
+    hdr.innerHTML=`<span class="qto-rt-arrow" id="discArrow_${di}" style="font-size:10px;color:#4b6a9e;width:12px;">▼</span>
+      <span class="pill ${pc}" style="font-size:10px;">${esc(disc)}</span>
+      <span style="font-size:11px;color:#94a3b8;">${dg.groups.length} group${dg.groups.length!==1?'s':''} · ${dg.groups.reduce((a,{g})=>a+g.count,0)} elements</span>`;
+    hdr.addEventListener('click',()=>{
+      const bd=document.getElementById(bodyId);const ar=document.getElementById(`discArrow_${di}`);
+      if(bd){const open=bd.style.display!=='none';bd.style.display=open?'none':'';if(ar)ar.textContent=open?'▶':'▼';}
+    });
+    section.appendChild(hdr);
+
+    // Section body
+    const sectionBody=document.createElement('div');sectionBody.className='qto-disc-section-body';sectionBody.id=bodyId;
+
+    // Apply-all bar
+    const applyBar=document.createElement('div');applyBar.className='qto-apply-all-bar';
+    applyBar.innerHTML=`<span style="font-size:10px;color:#4b6a9e;white-space:nowrap;">Apply to all in ${esc(disc)}:</span>
+      <input class="qto-apply-all-input" id="${applyAllId}" type="text" placeholder="Type a category to apply to all rows below…">
+      <button class="qto-apply-all-btn" onclick="applyAllToDisc('${applyAllId}','${esc(disc)}')">Apply to All →</button>`;
+    sectionBody.appendChild(applyBar);
+
+    // Column header
+    const colHdr=document.createElement('div');
+    colHdr.style.cssText='display:grid;grid-template-columns:1.2fr 1fr 1fr auto;gap:8px;padding:6px 12px;background:#0a1a35;font-size:9px;font-weight:bold;text-transform:uppercase;letter-spacing:.06em;color:#64748b;border-bottom:1px solid #1e3a6e;';
+    colHdr.innerHTML='<span>Revit Category / Element</span><span>Select Existing</span><span>Or type custom</span><span style="text-align:center;">Count</span>';
+    sectionBody.appendChild(colHdr);
+
+    // Rows
+    dg.groups.forEach(({key,g},i)=>{
+      const row=document.createElement('div');
+      row.className='qto-override-row';
+      row.dataset.groupKey=key;
+      row.dataset.disc=disc;
+      row.style.cssText=`display:grid;grid-template-columns:1.2fr 1fr 1fr auto;gap:8px;align-items:center;padding:7px 12px;background:${i%2===0?'#111827':'#0d1835'};border-bottom:1px solid rgba(30,58,110,.25);`;
+      const overrideBadge=g.isOverridden?`<span class="qto-overridden-badge">✎ overridden</span>`:'';
+      row.innerHTML=`
+        <div style="min-width:0;"><div class="qto-override-src">${esc(g.cat)} ${overrideBadge}</div><div style="font-size:10px;color:#4b6a9e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(g.type)}</div></div>
+        <select class="cfg-select qto-override-sel" style="font-size:11px;" data-group-key="${esc(key)}">${catOpts}</select>
+        <input class="cfg-input qto-override-custom" type="text" placeholder="Custom category…" style="font-size:11px;" data-group-key="${esc(key)}">
+        <span style="font-size:11px;font-family:'Courier New',monospace;color:#60a5fa;text-align:center;">${g.count}</span>`;
+      sectionBody.appendChild(row);
+    });
+    section.appendChild(sectionBody);
+    body.appendChild(section);
+  });
+
+  // Restore previously set values
+  document.querySelectorAll('.qto-override-row[data-group-key]').forEach(row=>{
+    const key=row.dataset.groupKey;
+    const g=groups.get(key);if(!g)return;
+    const val=qtoOverrides.get(key)||(g.isOverridden?g.currentVal:'');
+    if(!val)return;
+    const sel=row.querySelector('.qto-override-sel');
+    const custom=row.querySelector('.qto-override-custom');
+    if(sel&&[...sel.options].find(o=>o.value===val)){sel.value=val;}
+    else if(custom){custom.value=val;}
+  });
+
+  document.getElementById('qtoOverrideModal').classList.add('open');
+}
+
+// Apply-all helper — floods all custom inputs in a discipline section
+function applyAllToDisc(inputId,disc){
+  const inp=document.getElementById(inputId);if(!inp)return;
+  const val=inp.value.trim();if(!val){showToast('Type a category first','warn');return;}
+  document.querySelectorAll(`.qto-override-row[data-disc="${CSS.escape(disc)}"]`).forEach(row=>{
+    const custom=row.querySelector('.qto-override-custom');
+    if(custom)custom.value=val;
+    const sel=row.querySelector('.qto-override-sel');
+    if(sel)sel.value=''; // clear dropdown so custom takes priority
+  });
+  showToast(`Applied "${val}" to all ${disc} rows`,'info');
+}
+
+function closeQTOOverrideModal(){document.getElementById('qtoOverrideModal').classList.remove('open');}
+
+function applyQTOOverrides(){
+  const NOT_DEF=['<not defined>','not defined',''];
+  const updates=new Map(); // key → new value
+  document.querySelectorAll('.qto-override-row[data-group-key]').forEach(row=>{
+    const key=row.dataset.groupKey;
+    const sel=row.querySelector('.qto-override-sel');
+    const custom=row.querySelector('.qto-override-custom');
+    const val=(custom?.value.trim())||sel?.value.trim()||'';
+    if(val){updates.set(key,val);qtoOverrides.set(key,val);}
+    // If cleared — remove from overrides but don't reset data (leave as-is)
+  });
+  // Apply to raw rows: update any row whose group key is in updates
+  reviztoRawRows.forEach(r=>{
+    const cat=(catColName?r[catColName]:'')?.trim()||'Unknown Category';
+    const type=(nameColName?r[nameColName]:'')?.trim()||(typeColName?r[typeColName]:'')?.trim()||'Unknown';
+    const key=`${cat}|||${type}`;
+    if(updates.has(key))r[qtoSubCol]=updates.get(key);
+  });
+  closeQTOOverrideModal();
+  if(savedDisc.length)runDashboard();
+  renderQTOBlanksPanel();
+  showToast(`QTO overrides applied — ${updates.size} group${updates.size!==1?'s':''} assigned`,'success');
+}
+
+// Render data quality card for the active sum column
+function renderDQCard(candidates,sumCol,hasSumCol,uomKeyword,currentUom){
+  const card=document.getElementById('dqCard');if(!card)return;
+  if(!hasSumCol||!sumCol){card.style.display='none';return;}
+  const NOT_DEF_PATTERNS=['<not defined>','not defined','n/a','none','—',''];
+  let zeroCount=0,blankCount=0,goodCount=0;
+  candidates.forEach(r=>{
+    const raw=String(r[sumCol]||'').trim();
+    const lo=raw.toLowerCase();
+    if(!raw||NOT_DEF_PATTERNS.includes(lo)){blankCount++;}
+    else{const n=parseFloat(raw);if(isNaN(n)||n===0)zeroCount++;else goodCount++;}
+  });
+  const total=candidates.length;
+  const problemCount=zeroCount+blankCount;
+  card.style.display='block';
+  if(problemCount===0&&dqFilterMode===null){
+    card.innerHTML=`<div class="dq-ok">✅ All ${total.toLocaleString()} elements have a valid ${uomKeyword||currentUom||sumCol} value — no gaps detected.</div>`;
+    return;
+  }
+  const isActive=(mode)=>dqFilterMode===mode;
+  const chipStyle=(mode,color)=>`cursor:pointer;border-color:${isActive(mode)?color:'rgba(30,58,110,.4)'};background:${isActive(mode)?`rgba(${color==='#ef4444'?'239,68,68':'245,158,11'},.15)`:'#111827'};outline:${isActive(mode)?`2px solid ${color}`:'none'};outline-offset:1px;transition:all .15s;`;
+  const colLabel=uomKeyword||currentUom||sumCol;
+  const filterHint=dqFilterMode?` · <span style="font-size:9px;color:#f59e0b;">Filtering table — click active chip to clear</span>`:'';
+  card.innerHTML=`<div class="dq-card">
+    <div class="dq-icon">⚠️</div>
+    <div class="dq-body">
+      <div class="dq-title">Data Quality — ${colLabel} column: "${esc(sumCol)}"${filterHint}</div>
+      <div class="dq-stats">
+        <div class="dq-stat" style="${chipStyle('valid','#22c55e')}cursor:pointer;" onclick="setDQFilter('valid')">
+          <span class="dq-stat-val" style="color:#22c55e;">${goodCount.toLocaleString()}</span>
+          <span class="dq-stat-label">valid values ${isActive('valid')?'✓':''}</span>
+        </div>
+        <div class="dq-stat" style="border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.07);${chipStyle('blank','#ef4444')}" onclick="setDQFilter('blank')">
+          <span class="dq-stat-val" style="color:#ef4444;">${blankCount.toLocaleString()}</span>
+          <span class="dq-stat-label">blank / &lt;Not Defined&gt; ${isActive('blank')?'✓':''}</span>
+        </div>
+        <div class="dq-stat" style="border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.07);${chipStyle('zero','#ef4444')}" onclick="setDQFilter('zero')">
+          <span class="dq-stat-val" style="color:#ef4444;">${zeroCount.toLocaleString()}</span>
+          <span class="dq-stat-label">zero values ${isActive('zero')?'✓':''}</span>
+        </div>
+        <div class="dq-stat" style="border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.07);${chipStyle('problem','#f59e0b')}" onclick="setDQFilter('problem')">
+          <span class="dq-stat-val" style="color:#f59e0b;">${problemCount.toLocaleString()}</span>
+          <span class="dq-stat-label">all problems ${isActive('problem')?'✓':''}</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function setDQFilter(mode){
+  dqFilterMode=(dqFilterMode===mode)?null:mode;
+  rerenderQTOTable();
+}
+
+
+function renderQTODetailTable(){
+  if(!activeQTOSub)return;
+  const {discipline,sub}=activeQTOSub;
+  const warnEl=document.getElementById('qtoMappingWarn');
+  const warnMsg=document.getElementById('qtoMappingWarnMsg');
+  if(!qtoSubCol){warnEl.style.display='flex';warnMsg.textContent='No QTO Categories column detected. Add it as a Revizto custom property.';}
+  else{warnEl.style.display='none';}
+
+  let candidates=[...mappedRows,...unmappedRows];
+  if(activeDisc.size)candidates=candidates.filter(r=>activeDisc.has(r._discipline));
+  if(activeAuth.size)candidates=candidates.filter(r=>activeAuth.has(r._orgName));
+  if(activeAuthCat.size)candidates=candidates.filter(r=>activeAuthCat.has(r._authorCat));
+  if(activePrec.size)candidates=candidates.filter(r=>activePrec.has(r._precinct));
+  dynamicFilters.forEach(df=>{if(df.activeValues.size)candidates=candidates.filter(r=>df.activeValues.has((r[df.colName]||'').trim()));});
+  candidates=candidates.filter(r=>r._discipline===discipline);
+  if(qtoSubCol)candidates=candidates.filter(r=>(r[qtoSubCol]||'').trim()===sub.name);
+  // Attach dedup dim values per row
+  candidates=candidates.map(r=>{
+    const dims=getDedupDims(r);
+    const out={...r};
+    dims.forEach((v,baseName)=>{out[`_dedup:${baseName}`]=v;});
+    out._dedupTotal=getDedupDimTotal(r);
+    return out;
+  });
+  currentQTODetailRows=candidates;
+  setText('qtoStatCount',candidates.length.toLocaleString());
+
+  // Active UOM: override > saved > sub.uom
+  const savedSub=getQTOSavedSub(discipline,sub.name);
+  const sumCol=savedSub?.sumColumn||'';
+  const hasSumCol=sumCol&&reviztoHeaders.includes(sumCol);
+  const currentUom=qtoUomOverride||(savedSub?.uomOverride)||sub.uom||'';
+
+  // ── Detect volume column for tonnage (column name containing "volume", case-insensitive) ──
+  const volCol=numericCols.find(h=>h.toLowerCase().includes('volume'))||null;
+  // Tonnage rule: Consultant rows + "steel" in QTO category name
+  const isSteel=sub.name.toLowerCase().includes('steel');
+  const applyTonnage=isSteel&&volCol;
+  const tonnageRows=applyTonnage?candidates.filter(r=>r._authorCat==='Consultant'):[];
+
+  // ── Sum col stat card ──
+  // mm→m conversion: if the sum column name or UoM contains "length" and values are in mm
+  const isLength=hasSumCol&&(sumCol.toLowerCase().includes('length')||currentUom.toLowerCase()==='mm');
+  const lenFactor=isLength?0.001:1;
+  const lenUom=isLength?'m':(currentUom||sumCol);
+  const sumCard=document.getElementById('qtoSumCard');
+  const sumLabel=document.getElementById('qtoSumLabel');
+  const sumValEl=document.getElementById('qtoStatSum');
+  const sumDesc=document.getElementById('qtoSumColDesc');
+  if(hasSumCol){
+    const rawTotal=candidates.reduce((a,r)=>{const v=parseFloat(r[sumCol]||0);return a+(isNaN(v)?0:v);},0);
+    const total=rawTotal*lenFactor;
+    const dimKeyword=(['volume','area','length','weight','height','depth','perimeter','thickness'].find(k=>sumCol.toLowerCase().includes(k)))||null;
+    const labelBase=dimKeyword?capitalize(dimKeyword):(lenUom||sumCol);
+    sumLabel.textContent=`Total ${labelBase}${lenUom&&lenUom!==labelBase?' ('+lenUom+')':''}`;
+    sumValEl.textContent=total.toLocaleString(undefined,{maximumFractionDigits:3})+(lenUom?' '+lenUom:'');
+    sumDesc.textContent=`using column: "${sumCol}"${isLength?' · converted mm→m':''}`;
+    sumCard.style.borderTopColor='#22c55e';sumValEl.style.color='#22c55e';
+  }else{
+    sumLabel.textContent='Sum Column';sumValEl.textContent='—';
+    sumDesc.textContent=sumCol?`"${sumCol}" not found in CSV`:'Set a Sum Column in QTO config';
+    sumCard.style.borderTopColor='#374151';sumValEl.style.color='#4b6a9e';
+  }
+
+  // ── Tonnage stat card ──
+  const tonnageCard=document.getElementById('qtoTonnageCard');
+  const tonnageValEl=document.getElementById('qtoStatTonnage');
+  const tonnageDescEl=document.getElementById('qtoTonnageDesc');
+  if(applyTonnage){
+    const tonnage=tonnageRows.reduce((a,r)=>{const v=parseFloat(r[volCol]||0);return a+(isNaN(v)?0:v*7.85);},0);
+    tonnageCard.style.display='';
+    tonnageCard.style.borderTopColor='#f59e0b';
+    tonnageValEl.textContent=tonnage.toLocaleString(undefined,{maximumFractionDigits:2})+' t';
+    tonnageDescEl.textContent=`${tonnageRows.length} Consultant rows × Volume(${volCol}) × 7.85 t/m³`;
+  }else{
+    tonnageCard.style.display='none';
+  }
+
+  // ── Installed on Site card ──
+  const installedCard=document.getElementById('qtoInstalledCard');
+  const installedPctEl=document.getElementById('qtoStatInstalledPct');
+  const installedDescEl=document.getElementById('qtoInstalledDesc');
+  if(installedCol&&hasSumCol){
+    const installedRows=candidates.filter(r=>(r[installedCol]||'').trim().toLowerCase()==='yes');
+    const totalSum=candidates.reduce((a,r)=>{const v=parseFloat(r[sumCol]||0);return a+(isNaN(v)?0:v);},0)*lenFactor;
+    const installedSum=installedRows.reduce((a,r)=>{const v=parseFloat(r[sumCol]||0);return a+(isNaN(v)?0:v);},0)*lenFactor;
+    const pct=totalSum>0?Math.round(installedSum/totalSum*100):0;
+    installedCard.style.display='';
+    installedCard.style.borderTopColor='#22c55e';
+    installedPctEl.textContent=`${pct}%`;
+    installedDescEl.textContent=`${installedSum.toLocaleString(undefined,{maximumFractionDigits:3})} ${lenUom} installed of ${totalSum.toLocaleString(undefined,{maximumFractionDigits:3})} total`;
+  }else{
+    if(installedCard)installedCard.style.display='none';
+  }
+
+  // ── Dynamic stat row columns ──
+  const visCards=[true,hasSumCol,(applyTonnage&&volCol),(installedCol&&hasSumCol)].filter(Boolean).length;
+  const statRow=document.getElementById('qtoStatRow');
+  if(statRow)statRow.style.gridTemplateColumns=`repeat(${Math.max(2,visCards)},1fr)`;
+
+  // ── Build column definitions (skip if preserving order for reorder/toggle) ──
+  if(!_qtoPreserveColOrder||!qtoTableAllCols.length){
+    const cols=buildQTOTableCols(hasSumCol,sumCol,currentUom,applyTonnage,volCol);
+    qtoTableAllCols=cols;
+  } else {
+    // Update visible state of sum/tonnage cols in case hasSumCol changed
+    qtoTableAllCols.forEach(c=>{
+      if(c.key.startsWith('_sum:')&&!hasSumCol)c.visible=false;
+      if(c.key==='_tonnage'&&!applyTonnage)c.visible=false;
+    });
+  }
+  renderColPickerChips(qtoTableAllCols);
+  // ── Data quality card ──
+  const dimKw2=['volume','area','length','weight','height','depth','perimeter','thickness'].find(k=>sumCol.toLowerCase().includes(k))||null;
+  renderDQCard(candidates,sumCol,hasSumCol,dimKw2?capitalize(dimKw2):null,currentUom);
+  const activeCols=qtoTableAllCols.filter(c=>c.locked||c.visible);
+
+  // ── Sort ──
+  let sorted=[...candidates];
+  if(qtoSortState.col){
+    const sc=qtoSortState.col;const dir=qtoSortState.dir==='asc'?1:-1;
+    sorted.sort((a,b)=>{
+      let av=a[sc]??'',bv=b[sc]??'';
+      const an=parseFloat(av),bn2=parseFloat(bv);
+      if(!isNaN(an)&&!isNaN(bn2))return(an-bn2)*dir;
+      return String(av).localeCompare(String(bv))*dir;
+    });
+  }
+
+  const pillClass={Architectural:'p-arch',Mechanical:'p-mech',Structural:'p-struc',Electrical:'p-elec','Fire Protection':'p-fire',Hydraulics:'p-hyd',Civil:'p-civil',Landscape:'p-land'};
+  const thead=document.getElementById('qtoDetailThead');
+  const tbody=document.getElementById('qtoDetailTbody');
+  const tfoot=document.getElementById('qtoDetailTfoot');
+
+  thead.innerHTML=`<tr>${activeCols.map(col=>{
+    const isSort=qtoSortState.col===col.key;
+    const cls=['sortable',isSort?(qtoSortState.dir==='asc'?'sort-asc':'sort-desc'):''].filter(Boolean).join(' ');
+    return`<th class="${cls}" onclick="setSortCol('${esc(col.key)}')">${esc(col.label)}</th>`;
+  }).join('')}</tr>`;
+
+  if(!candidates.length){
+    const dqC=document.getElementById('dqCard');if(dqC)dqC.style.display='none';
+    tbody.innerHTML=`<tr><td colspan="${activeCols.length}"><div class="empty"><div class="empty-icon">🔍</div><div class="empty-title">No elements match ${esc(discipline)} › ${esc(sub.name)}</div><div class="empty-sub">Check QTO Categories values in Revizto</div></div></td></tr>`;
+    tfoot.innerHTML='';return;
+  }
+
+  // ── Apply DQ filter if active ──
+  const NOT_DEF_PATTERNS=['<not defined>','not defined','n/a','none','—',''];
+  let sorted2=sorted;
+  if(dqFilterMode&&hasSumCol){
+    sorted2=sorted.filter(r=>{
+      const raw=String(r[sumCol]||'').trim();
+      const lo=raw.toLowerCase();
+      const isBlank=!raw||NOT_DEF_PATTERNS.includes(lo);
+      const isZero=!isBlank&&(isNaN(parseFloat(raw))||parseFloat(raw)===0);
+      const isValid=!isBlank&&!isZero;
+      if(dqFilterMode==='blank')return isBlank;
+      if(dqFilterMode==='zero')return isZero;
+      if(dqFilterMode==='valid')return isValid;
+      if(dqFilterMode==='problem')return isBlank||isZero;
+      return true;
+    });
+  }
+
+  const display=sorted2.slice(0,500);
+  tbody.innerHTML=display.map(r=>`<tr>${activeCols.map(col=>{
+    const {key}=col;
+    if(key==='_discipline'){const pc=pillClass[r._discipline]||'p-other';return`<td><span class="pill ${pc}">${esc(r._discipline)}</span></td>`;}
+    if(key==='_authorCat'||key==='_orgName'||key==='_precinct')return`<td class="str">${esc(r[key]||'—')}</td>`;
+    if(key.startsWith('_dedup:')){const v=r[key];return`<td style="color:#5eead4;">${v!=null?v.toLocaleString(undefined,{maximumFractionDigits:3}):'—'}</td>`;}
+    if(key.startsWith('_sum:')){const raw=parseFloat(r[sumCol]||0);const v=isNaN(raw)?null:raw*lenFactor;return`<td style="color:#22c55e;">${v!=null?v.toLocaleString(undefined,{maximumFractionDigits:3}):'—'}</td>`;}
+    if(key==='_tonnage'){
+      if(r._authorCat==='Consultant'&&applyTonnage){const v=parseFloat(r[volCol]||0);return`<td style="color:#f59e0b;font-weight:bold;">${!isNaN(v)?(v*7.85).toLocaleString(undefined,{maximumFractionDigits:3})+' t':'—'}</td>`;}
+      return`<td style="color:#374151;">—</td>`;
+    }
+    const v=r[key]||'—';return`<td class="${col.numeric?'':'str'}">${esc(String(v))}</td>`;
+  }).join('')}</tr>`).join('');
+
+  if(sorted2.length>500){const ex=document.createElement('tr');ex.innerHTML=`<td colspan="${activeCols.length}" style="text-align:center;padding:9px;color:#4b6a9e;font-size:11px;">… ${(sorted2.length-500).toLocaleString()} more rows — export CSV to see all</td>`;tbody.appendChild(ex);}
+
+  // Footer totals
+  tfoot.innerHTML=`<tr>${activeCols.map(col=>{
+    const{key}=col;
+    if(key==='_discipline')return`<td style="color:#94a3b8;font-family:Arial,sans-serif;">TOTAL</td>`;
+    if(key==='_authorCat'||key==='_orgName'||key==='_precinct')return`<td></td>`;
+    if(key===sfColName||key===nameColName||key===typeColName||key===catColName)return`<td style="color:#374151;font-family:Arial,sans-serif;">${key===sfColName?candidates.length.toLocaleString()+' elements':''}</td>`;
+    if(key.startsWith('_dedup:')){const t=candidates.reduce((a,r)=>a+(r[key]||0),0);return`<td style="color:#14b8a6;">${t.toLocaleString(undefined,{maximumFractionDigits:3})} ${currentUom}</td>`;}
+    if(key.startsWith('_sum:')){const rawT=hasSumCol?candidates.reduce((a,r)=>{const v=parseFloat(r[sumCol]||0);return a+(isNaN(v)?0:v);},0):null;const t=rawT!=null?rawT*lenFactor:null;return t!=null?`<td style="color:#22c55e;">${t.toLocaleString(undefined,{maximumFractionDigits:3})} ${lenUom}</td>`:`<td></td>`;}
+    if(key==='_tonnage'&&applyTonnage){const t=tonnageRows.reduce((a,r)=>{const v=parseFloat(r[volCol]||0);return a+(isNaN(v)?0:v*7.85);},0);return`<td style="color:#f59e0b;font-weight:bold;">${t.toLocaleString(undefined,{maximumFractionDigits:2})} t</td>`;}
+    if(col.numeric&&!key.startsWith('_')){const t=candidates.reduce((a,r)=>{const v=parseFloat(r[key]||0);return a+(isNaN(v)?0:v);},0);return`<td>${t.toLocaleString(undefined,{maximumFractionDigits:3})}</td>`;}
+    return`<td></td>`;
+  }).join('')}</tr>`;
+}
+
+// Re-render just the table without recomputing candidates (for sort/col toggle)
+// Re-render table only — preserves qtoTableAllCols order (for sort/col toggle/reorder)
+let _qtoPreserveColOrder=false;
+function rerenderQTOTable(){_qtoPreserveColOrder=true;renderQTODetailTable();_qtoPreserveColOrder=false;}
+
+function capitalize(s){return s?s.charAt(0).toUpperCase()+s.slice(1):'';}
+
+function exportQTODetailCSV(){
+  if(!activeQTOSub||!currentQTODetailRows.length){showToast('No data to export','warn');return;}
+  const sub=activeQTOSub.sub;
+  const savedSub=getQTOSavedSub(activeQTOSub.discipline,sub.name);
+  const sumCol=savedSub?.sumColumn||'';
+  const hasSumCol=sumCol&&reviztoHeaders.includes(sumCol);
+  const currentUom=qtoUomOverride||(savedSub?.uomOverride)||sub.uom||'';
+  const volCol=numericCols.find(h=>h.toLowerCase().includes('volume'))||null;
+  const isSteel=sub.name.toLowerCase().includes('steel');
+  const applyTonnage=isSteel&&volCol;
+  const cols=buildQTOTableCols(hasSumCol,sumCol,currentUom,applyTonnage,volCol);
+  const activeCols=cols.filter(c=>c.locked||c.visible);
+  const hdr=activeCols.map(c=>c.label);
+  const rows=currentQTODetailRows.map(r=>activeCols.map(col=>{
+    const{key}=col;
+    if(key==='_discipline')return r._discipline||'';
+    if(key==='_authorCat')return r._authorCat||'';
+    if(key==='_orgName')return r._orgName||'';
+    if(key==='_precinct')return r._precinct||'';
+    if(key.startsWith('_dedup:'))return r[key]!=null?r[key]:'';
+    if(key.startsWith('_sum:'))return r[sumCol]||'';
+    if(key==='_tonnage'){
+      if(r._authorCat==='Consultant'&&applyTonnage){const v=parseFloat(r[volCol]||0);return !isNaN(v)?+(v*7.85).toFixed(3):'';}
+      return '';
+    }
+    return r[key]||'';
+  }));
+  const csv=[hdr,...rows].map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  downloadString(csv,`qto_${sub.name.replace(/\s+/g,'_')}_${dateStr()}.csv`,'text/csv');
+  showToast('CSV exported','success');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════════════════════════════
+function runDashboard(){
+  if(!reviztoRawRows.length||!savedDisc.length)return;
+  mappedRows=[];unmappedRows=[];
+  reviztoRawRows.forEach(row=>{
+    const sf=sfColName?(row[sfColName]||'').trim():'';
+    const ws=wsColName?(row[wsColName]||'').trim():'';
+    const ph=phColName?(row[phColName]||'').trim():'';
+    const match=savedDisc.find(rule=>{
+      const sfs=Array.isArray(rule.sourceFiles)?rule.sourceFiles:(rule.sourceFile?[rule.sourceFile]:[]);
+      if(!sfs.includes(sf))return false;
+      const wss=Array.isArray(rule.worksets)?rule.worksets:[];if(wss.length&&!wss.includes(ws))return false;
+      const phs=Array.isArray(rule.phases)?rule.phases:[];if(phs.length&&!phs.includes(ph))return false;
+      return true;
+    });
+    const authMatch=savedAuth.find(a=>(a.sourceFiles||[]).includes(sf));
+    const orgName=authMatch?authMatch.orgName:'Unassigned';
+    const precMatch=savedPrec.find(p=>(p.sourceFiles||[]).includes(sf));
+    const precinct=savedPrec.length?(precMatch?precMatch.precinctName:'Unassigned'):'';
+    const base={...row,_orgName:orgName,_precinct:precinct,_sf:sf};
+    if(match)mappedRows.push({...base,_discipline:match.discipline,_authorCat:match.authorCategory||'',_ruleId:match.id});
+    else unmappedRows.push({...base,_discipline:'Unmapped',_authorCat:'',_ruleId:null});
+  });
+  applyFilters();
+  renderDiscDonut();
+  updateConfigSummaryBar();
+  renderQTORightPanel();
+  renderQTOBlanksPanel();
+  if(!activeQTOSub)showProjectSummaryView();
+  else showQTODetailView();
+}
+
+function applyFilters(){
+  let rows=[...mappedRows];
+  if(activeDisc.size)rows=rows.filter(r=>activeDisc.has(r._discipline));
+  if(activeAuth.size)rows=rows.filter(r=>activeAuth.has(r._orgName));
+  if(activeAuthCat.size)rows=rows.filter(r=>activeAuthCat.has(r._authorCat));
+  if(activePrec.size)rows=rows.filter(r=>activePrec.has(r._precinct));
+  dynamicFilters.forEach(df=>{if(df.activeValues.size)rows=rows.filter(r=>df.activeValues.has((r[df.colName]||'').trim()));});
+  setText('kpi-total',reviztoRawRows.length.toLocaleString());
+  setText('kpi-mapped',mappedRows.length.toLocaleString());
+  setText('kpi-unmapped',unmappedRows.length.toLocaleString());
+  setText('kpi-disciplines',[...new Set(savedDisc.map(r=>r.discipline))].length);
+  setText('kpi-sourcefiles',uniqueSFList.length.toLocaleString());
+  renderSummaryTable(rows);
+  updateFilterBar();
+  if(activeQTOSub)renderQTODetailTable();
+}
+
+function renderSummaryTable(rows){
+  const tbody=document.getElementById('summaryBody');
+  if(!savedDisc.length){tbody.innerHTML='<tr><td colspan="8"><div class="empty"><div class="empty-icon">⚙️</div><div class="empty-title">Configure disciplines</div></div></td></tr>';return;}
+  const pillClass={Architectural:'p-arch',Mechanical:'p-mech',Structural:'p-struc',Electrical:'p-elec','Fire Protection':'p-fire',Hydraulics:'p-hyd',Civil:'p-civil',Landscape:'p-land'};
+  tbody.innerHTML=savedDisc.map(rule=>{
+    const sfs=Array.isArray(rule.sourceFiles)?rule.sourceFiles:(rule.sourceFile?[rule.sourceFile]:[]);
+    const count=rows.filter(r=>r._ruleId===rule.id).length;
+    const pc=pillClass[rule.discipline]||'p-other';
+    const wsDisp=Array.isArray(rule.worksets)&&rule.worksets.length?rule.worksets.join(', '):'All';
+    const phDisp=Array.isArray(rule.phases)&&rule.phases.length?rule.phases.join(', '):'All';
+    const orgs=[...new Set(sfs.map(sf=>{const a=savedAuth.find(x=>(x.sourceFiles||[]).includes(sf));return a?a.orgName:'—';}))];
+    const precs=[...new Set(sfs.map(sf=>{const p=savedPrec.find(x=>(x.sourceFiles||[]).includes(sf));return p?p.precinctName:'—';}))];
+    return`<tr><td style="padding-top:10px;padding-bottom:10px;"><span class="pill ${pc}">${esc(rule.discipline)}</span></td><td class="str" style="padding-top:10px;padding-bottom:10px;">${esc(rule.authorCategory||'—')}</td><td class="str" style="padding-top:10px;padding-bottom:10px;">${esc(orgs.join(', '))}</td><td class="str" style="padding-top:10px;padding-bottom:10px;max-width:170px;overflow:hidden;text-overflow:ellipsis;" title="${esc(sfs.join(', '))}">${esc(sfs.join(', '))}</td><td style="padding-top:10px;padding-bottom:10px;font-weight:bold;color:#60a5fa;">${count.toLocaleString()}</td><td class="str" style="padding-top:10px;padding-bottom:10px;">${esc(wsDisp)}</td><td class="str" style="padding-top:10px;padding-bottom:10px;">${savedPrec.length?esc(precs.join(', ')):'—'}</td><td class="str" style="padding-top:10px;padding-bottom:10px;">${esc(phDisp)}</td></tr>`;
+  }).join('');
+}
+
+function renderDiscDonut(){
+  if(typeof Plotly==='undefined'){setTimeout(renderDiscDonut,300);return;}
+  const discMap={};mappedRows.forEach(r=>{discMap[r._discipline]=(discMap[r._discipline]||0)+1;});
+  if(unmappedRows.length)discMap['Unmapped']=unmappedRows.length;
+  const labels=Object.keys(discMap);const values=labels.map(l=>discMap[l]);
+  const COLORS=['#3b82f6','#f59e0b','#ef4444','#a855f7','#fca5a5','#14b8a6','#22c55e','#94a3b8'];
+  Plotly.react('chartDiscDonut',[{values,labels,type:'pie',hole:0.56,marker:{colors:COLORS},textinfo:'label+percent',textfont:{size:10,color:'#fff',family:'Arial'},hoverinfo:'label+value',direction:'clockwise'}],
+    {paper_bgcolor:'transparent',plot_bgcolor:'transparent',font:{family:'Arial',size:10,color:'#94a3b8'},margin:{t:12,r:8,b:12,l:8},showlegend:false},{responsive:true,displayModeBar:false});
+  setTimeout(()=>{try{Plotly.Plots.resize('chartDiscDonut');}catch(e){}},60);
+}
+function updateConfigSummaryBar(){
+  const dc=document.getElementById('configSummaryChips');
+  const ac=document.getElementById('authorSummaryChips');
+  if(!dc||!ac)return; // elements removed — skip safely
+  const discs=[...new Set(savedDisc.map(r=>r.discipline))].sort();
+  dc.innerHTML=discs.map(d=>`<span class="cs-chip">${esc(d)}</span>`).join('');
+  const orgs=[...new Set(savedAuth.map(a=>a.orgName))].sort();
+  ac.innerHTML=orgs.length?orgs.map(o=>`<span class="cs-chip" style="background:rgba(245,158,11,.1);color:#fcd34d;border-color:rgba(245,158,11,.3);">${esc(o)}</span>`).join(''):`<span style="font-size:10px;color:#374151;">not configured</span>`;
+}
+function updateFilterBar(){
+  const bar=document.getElementById('filterActiveBar');const desc=document.getElementById('filterActiveDesc');
+  const parts=[];
+  if(activeDisc.size)parts.push(`Disc: ${[...activeDisc].join(', ')}`);
+  if(activeAuth.size)parts.push(`Author: ${[...activeAuth].join(', ')}`);
+  if(activeAuthCat.size)parts.push(`Cat: ${[...activeAuthCat].join(', ')}`);
+  if(activePrec.size)parts.push(`Precinct: ${[...activePrec].join(', ')}`);
+  dynamicFilters.forEach(df=>{if(df.activeValues.size)parts.push(`${df.colName}: ${[...df.activeValues].join(', ')}`);});
+  if(parts.length){bar.classList.add('visible');desc.textContent=parts.join(' · ');}else bar.classList.remove('visible');
+}
+function exportSummaryCSV(){
+  const hdr=['Discipline','Author Cat.','Organisation','Precinct','Source File(s)','Workset(s)','Phase(s)','Element Count'];
+  const rows=savedDisc.map(rule=>{
+    const sfs=Array.isArray(rule.sourceFiles)?rule.sourceFiles:(rule.sourceFile?[rule.sourceFile]:[]);
+    const count=mappedRows.filter(r=>r._ruleId===rule.id).length;
+    const wsDisp=Array.isArray(rule.worksets)&&rule.worksets.length?rule.worksets.join('|'):'All';
+    const phDisp=Array.isArray(rule.phases)&&rule.phases.length?rule.phases.join('|'):'All';
+    const orgs=[...new Set(sfs.map(sf=>{const a=savedAuth.find(x=>(x.sourceFiles||[]).includes(sf));return a?a.orgName:'—';}))];
+    const precs=[...new Set(sfs.map(sf=>{const p=savedPrec.find(x=>(x.sourceFiles||[]).includes(sf));return p?p.precinctName:'—';}))];
+    return[rule.discipline,rule.authorCategory||'',orgs.join('|'),precs.join('|'),sfs.join('|'),wsDisp,phDisp,count];
+  });
+  const csv=[hdr,...rows].map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  downloadString(csv,'qto_summary_'+dateStr()+'.csv','text/csv');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// FILTER CHIPS + SHIFT+CLICK
+// ══════════════════════════════════════════════════════════════════
+function buildDisciplineChips(){
+  const wrap=document.getElementById('chipDiscipline');
+  const discs=[...new Set(savedDisc.map(r=>r.discipline))].sort();
+  if(!discs.length){wrap.innerHTML='<span style="font-size:10px;color:#374151;">Configure first</span>';return;}
+  wrap.innerHTML=discs.map(d=>`<span class="chip" data-val="${esc(d)}" onclick="toggleFilter('disc','${esc(d)}',this,event)">${esc(d)}</span>`).join('');
+}
+function buildAuthorChips(){
+  const wrap=document.getElementById('chipAuthor');
+  const orgs=[...new Set(savedAuth.map(a=>a.orgName))].sort();
+  if(!orgs.length){wrap.innerHTML='<span style="font-size:10px;color:#374151;">Configure first</span>';return;}
+  wrap.innerHTML=orgs.map(o=>`<span class="chip" data-val="${esc(o)}" onclick="toggleFilter('auth','${esc(o)}',this,event)">${esc(o)}</span>`).join('');
+}
+function buildAuthorCatChips(){
+  const wrap=document.getElementById('chipAuthorCat');
+  const cats=[...new Set(savedDisc.map(r=>r.authorCategory).filter(Boolean))].sort();
+  if(!cats.length){wrap.innerHTML='<span style="font-size:10px;color:#374151;">Configure disciplines first</span>';return;}
+  wrap.innerHTML=cats.map(c=>`<span class="chip" data-val="${esc(c)}" onclick="toggleFilter('authcat','${esc(c)}',this,event)">${esc(c)}</span>`).join('');
+}
+function buildPrecinctChips(){
+  const group=document.getElementById('filterPrecinctGroup');const wrap=document.getElementById('chipPrecinct');
+  if(!savedPrec.length){group.style.display='none';activePrec.clear();return;}
+  group.style.display='';
+  const names=[...new Set(savedPrec.map(p=>p.precinctName))].sort();
+  wrap.innerHTML=names.map(n=>`<span class="chip" data-val="${esc(n)}" onclick="toggleFilter('prec','${esc(n)}',this,event)">${esc(n)}</span>`).join('');
+}
+function toggleFilter(type,val,chip,e){
+  const setMap={disc:activeDisc,auth:activeAuth,authcat:activeAuthCat,prec:activePrec};
+  const clsMap={disc:'active-disc',auth:'active-auth',authcat:'active-authcat',prec:'active-prec'};
+  const wrapId={disc:'chipDiscipline',auth:'chipAuthor',authcat:'chipAuthorCat',prec:'chipPrecinct'};
+  const s=setMap[type];const cls=clsMap[type];
+  if(e&&e.shiftKey&&lastChipClick[type]){
+    const chips=[...document.getElementById(wrapId[type]).querySelectorAll('.chip')];
+    const aIdx=chips.indexOf(lastChipClick[type]),bIdx=chips.indexOf(chip);
+    if(aIdx>=0&&bIdx>=0){const lo=Math.min(aIdx,bIdx),hi=Math.max(aIdx,bIdx);const tActive=!chip.classList.contains(cls);for(let i=lo;i<=hi;i++){const c=chips[i];const v=c.dataset.val;tActive?(c.classList.add(cls),s.add(v)):(c.classList.remove(cls),s.delete(v));}}
+  }else{chip.classList.toggle(cls);chip.classList.contains(cls)?s.add(val):s.delete(val);lastChipClick[type]=chip;}
+  applyFilters();
+}
+function clearAllFilters(){
+  activeDisc.clear();activeAuth.clear();activeAuthCat.clear();activePrec.clear();
+  lastChipClick={disc:null,auth:null,authcat:null,prec:null};
+  document.querySelectorAll('.chip').forEach(c=>c.className='chip');
+  dynamicFilters.forEach(df=>df.activeValues.clear());
+  document.querySelectorAll('.chip.active-dyn').forEach(c=>c.classList.remove('active-dyn'));
+  applyFilters();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DYNAMIC COLUMN FILTERS
+// ══════════════════════════════════════════════════════════════════
+let addFilterPickerEl=null;
+
+function openAddFilterPicker(e){
+  if(addFilterPickerEl){addFilterPickerEl.remove();addFilterPickerEl=null;return;}
+  if(!reviztoHeaders.length){showToast('Load a CSV first','warn');return;}
+  const picker=document.createElement('div');picker.className='add-filter-picker';
+  const usedCols=new Set(dynamicFilters.map(df=>df.colName));
+  const availCols=reviztoHeaders.filter(h=>!usedCols.has(h));
+  const inp=document.createElement('input');inp.placeholder='🔍 Search columns…';inp.type='text';picker.appendChild(inp);
+  const list=document.createElement('div');list.className='add-filter-list';
+  const renderPicker=(q='')=>{
+    const filtered=q?availCols.filter(h=>h.toLowerCase().includes(q.toLowerCase())):availCols;
+    list.innerHTML=filtered.length?filtered.map(h=>`<div class="add-filter-opt" onclick="addDynamicFilter('${esc(h)}');addFilterPickerEl&&(addFilterPickerEl.remove(),addFilterPickerEl=null);">${esc(h)}</div>`).join(''):`<div class="add-filter-empty">No columns found</div>`;
+  };
+  renderPicker();inp.addEventListener('input',()=>renderPicker(inp.value));
+  picker.appendChild(list);
+  const rect=e.currentTarget.getBoundingClientRect();
+  picker.style.top=(rect.bottom+3)+'px';picker.style.left=rect.left+'px';
+  document.body.appendChild(picker);addFilterPickerEl=picker;
+  inp.focus();
+  setTimeout(()=>{document.addEventListener('click',function dismiss(ev){if(!picker.contains(ev.target)&&ev.target!==e.currentTarget){picker.remove();addFilterPickerEl=null;document.removeEventListener('click',dismiss);}});},10);
+}
+
+function addDynamicFilter(colName){
+  if(dynamicFilters.find(df=>df.colName===colName))return;
+  const allValues=[...new Set(reviztoRawRows.map(r=>(r[colName]||'').trim()).filter(Boolean))].sort();
+  dynFilterCtr++;
+  dynamicFilters.push({id:dynFilterCtr,colName,activeValues:new Set(),allValues});
+  renderDynFilters();
+}
+
+function removeDynamicFilter(id){
+  dynamicFilters=dynamicFilters.filter(df=>df.id!==id);
+  renderDynFilters();applyFilters();
+}
+
+function toggleDynFilter(id,val,chip){
+  const df=dynamicFilters.find(df=>df.id===id);if(!df)return;
+  if(chip.classList.contains('active-dyn')){chip.classList.remove('active-dyn');df.activeValues.delete(val);}
+  else{chip.classList.add('active-dyn');df.activeValues.add(val);}
+  applyFilters();
+}
+
+function refreshDynFilterValues(){
+  dynamicFilters.forEach(df=>{
+    df.allValues=[...new Set(reviztoRawRows.map(r=>(r[df.colName]||'').trim()).filter(Boolean))].sort();
+    // Clear values that no longer exist
+    [...df.activeValues].forEach(v=>{if(!df.allValues.includes(v))df.activeValues.delete(v);});
+  });
+  renderDynFilters();
+}
+
+function renderDynFilters(){
+  const container=document.getElementById('dynFilterList');
+  container.innerHTML='';
+  dynamicFilters.forEach(df=>{
+    const item=document.createElement('div');item.className='dyn-filter-item';
+    const hdr=document.createElement('div');hdr.className='dyn-filter-hdr';
+    hdr.innerHTML=`<span class="fl-dot fl-rose"></span><span class="dyn-filter-label">${esc(df.colName)}</span><button class="dyn-filter-del" onclick="removeDynamicFilter(${df.id})" title="Remove filter">✕</button>`;
+    item.appendChild(hdr);
+    const chips=document.createElement('div');chips.className='chip-scroll';chips.style.maxHeight='60px';
+    df.allValues.forEach(v=>{
+      const chip=document.createElement('span');chip.className='chip'+(df.activeValues.has(v)?' active-dyn':'');
+      chip.dataset.val=v;chip.textContent=v;chip.title=v;chip.style.maxWidth='120px';chip.style.overflow='hidden';chip.style.textOverflow='ellipsis';
+      chip.addEventListener('click',function(e){
+        if(e.shiftKey){
+          // Shift+click range for dyn filters
+          const allChips=[...chips.querySelectorAll('.chip')];
+          const lastActive=[...allChips].reverse().find(c=>c!==chip&&c.classList.contains('active-dyn'));
+          if(lastActive){
+            const aIdx=allChips.indexOf(lastActive),bIdx=allChips.indexOf(chip);
+            const lo=Math.min(aIdx,bIdx),hi=Math.max(aIdx,bIdx);
+            const target=!chip.classList.contains('active-dyn');
+            for(let i=lo;i<=hi;i++){const c=allChips[i];const v=c.dataset.val;target?(c.classList.add('active-dyn'),df.activeValues.add(v)):(c.classList.remove('active-dyn'),df.activeValues.delete(v));}
+            applyFilters();return;
+          }
+        }
+        toggleDynFilter(df.id,v,chip);
+      });
+      chips.appendChild(chip);
+    });
+    if(!df.allValues.length)chips.innerHTML=`<span style="font-size:10px;color:#374151;">No values</span>`;
+    item.appendChild(chips);
+    container.appendChild(item);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// BULK CONFIGURE FROM XLSX
+// ══════════════════════════════════════════════════════════════════
+function handleBulkConfigXLSX(e){
+  const file=e.target.files[0];e.target.value='';if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+      const loaded=[];
+      const discSheet=wb.SheetNames.find(s=>/disc/i.test(s));
+      if(discSheet){
+        const rows=XLSX.utils.sheet_to_json(wb.Sheets[discSheet],{header:1,defval:''});
+        if(rows.length>1){
+          const hdr=rows[0].map(h=>String(h||'').toLowerCase().trim());
+          const dI=hdr.findIndex(h=>h.includes('discipline')),aI=hdr.findIndex(h=>h.includes('author'));
+          const sfI=hdr.findIndex(h=>h.includes('source file')),wsI=hdr.findIndex(h=>h.includes('workset')),phI=hdr.findIndex(h=>h.includes('phase'));
+          discRows=rows.slice(1).filter(r=>r.some(v=>v)).map(r=>{
+            discRowCtr++;
+            const sfRaw=sfI>=0?String(r[sfI]||''):'',wsRaw=wsI>=0?String(r[wsI]||''):'',phRaw=phI>=0?String(r[phI]||''):'';
+            return{id:discRowCtr,discipline:dI>=0?String(r[dI]||'').trim():'',authorCategory:aI>=0?String(r[aI]||'').trim():'',
+              sourceFiles:sfRaw?sfRaw.split('|').map(s=>s.trim()).filter(Boolean):[],
+              worksets:wsRaw&&wsRaw!=='All'?wsRaw.split('|').map(s=>s.trim()).filter(Boolean):[],
+              phases:phRaw&&phRaw!=='All'?phRaw.split('|').map(s=>s.trim()).filter(Boolean):[],
+            };
+          });
+          savedDisc=discRows.map(r=>({...r,sourceFiles:[...r.sourceFiles],worksets:[...r.worksets],phases:[...r.phases]}));
+          localStorage.setItem('qto_disc_config',JSON.stringify(savedDisc));
+          loaded.push(`${savedDisc.length} discipline rules`);
+        }
+      }
+      const authSheet=wb.SheetNames.find(s=>/author/i.test(s)||/model/i.test(s));
+      if(authSheet){
+        const rows=XLSX.utils.sheet_to_json(wb.Sheets[authSheet],{header:1,defval:''});
+        if(rows.length>1){
+          const hdr=rows[0].map(h=>String(h||'').toLowerCase().trim());
+          const sfI=hdr.findIndex(h=>h.includes('source file')),oI=hdr.findIndex(h=>h.includes('org')||h.includes('name'));
+          authRows=rows.slice(1).filter(r=>r.some(v=>v)).map(r=>{
+            authRowCtr++;
+            const sfRaw=sfI>=0?String(r[sfI]||''):'';
+            return{id:authRowCtr,sourceFiles:sfRaw?sfRaw.split('|').map(s=>s.trim()).filter(Boolean):[],orgName:oI>=0?String(r[oI]||'').trim():''};
+          });
+          savedAuth=authRows.map(r=>({...r,sourceFiles:[...r.sourceFiles]}));
+          localStorage.setItem('qto_auth_config',JSON.stringify(savedAuth));
+          loaded.push(`${savedAuth.length} author mappings`);
+        }
+      }
+      const precSheet=wb.SheetNames.find(s=>/prec/i.test(s));
+      if(precSheet){
+        const rows=XLSX.utils.sheet_to_json(wb.Sheets[precSheet],{header:1,defval:''});
+        if(rows.length>1){
+          const hdr=rows[0].map(h=>String(h||'').toLowerCase().trim());
+          const pI=hdr.findIndex(h=>h.includes('precinct')||h.includes('name')),sfI=hdr.findIndex(h=>h.includes('source file'));
+          precRows=rows.slice(1).filter(r=>r.some(v=>v)).map(r=>{
+            precRowCtr++;
+            const sfRaw=sfI>=0?String(r[sfI]||''):'';
+            return{id:precRowCtr,precinctName:pI>=0?String(r[pI]||'').trim():'',sourceFiles:sfRaw?sfRaw.split('|').map(s=>s.trim()).filter(Boolean):[]};
+          });
+          savedPrec=precRows.map(r=>({...r,sourceFiles:[...r.sourceFiles]}));
+          localStorage.setItem('qto_prec_config',JSON.stringify(savedPrec));
+          loaded.push(`${savedPrec.length} precincts`);
+        }
+      }
+      const qtoSheet=wb.SheetNames.find(s=>/qto/i.test(s));
+      if(qtoSheet){
+        const rows=XLSX.utils.sheet_to_json(wb.Sheets[qtoSheet],{header:1,defval:''});
+        if(rows.length>1){
+          const hdr=rows[0].map(h=>String(h||'').toLowerCase().trim());
+          const discI=hdr.findIndex(h=>h.includes('disc')),subI=hdr.findIndex(h=>h.includes('sub')),sumI=hdr.findIndex(h=>h.includes('sum')||h.includes('column')),uomI=hdr.findIndex(h=>h.includes('uom'));
+          savedQTO=[];
+          rows.slice(1).filter(r=>r.some(v=>v)).forEach(r=>{
+            const disc=discI>=0?String(r[discI]||'').trim():'';const sub=subI>=0?String(r[subI]||'').trim():'';
+            const sum=sumI>=0?String(r[sumI]||'').trim():'';const uom=uomI>=0?String(r[uomI]||'').trim():'';
+            if(!disc||!sub)return;
+            let mc=savedQTO.find(m=>m.discipline===disc);
+            if(!mc){mc={discipline:disc,subs:[]};savedQTO.push(mc);}
+            mc.subs.push({name:sub,uom:'',sumColumn:sum,uomOverride:uom});
+          });
+          localStorage.setItem('qto_qto_config',JSON.stringify(savedQTO));
+          loaded.push(`QTO config`);
+        }
+      }
+      if(!loaded.length){showToast('No matching sheets found (Discipline / Model Authors / Precinct / QTO)','warn');return;}
+      updateDiscBadge();updateAuthBadge();updatePrecBadge();updateQTOBadge();
+      buildDisciplineChips();buildAuthorCatChips();buildAuthorChips();buildPrecinctChips();
+      if(reviztoRawRows.length&&savedDisc.length)runDashboard();
+      showToast(`Bulk loaded: ${loaded.join(', ')}`,'success');
+    }catch(err){showToast('Failed to read xlsx: '+err.message,'warn');}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DOWNLOAD ALL CONFIG XLSX (4 sheets)
+// ══════════════════════════════════════════════════════════════════
+function downloadAllConfigXLSX(){
+  const wb=XLSX.utils.book_new();
+  // Sheet 1: Discipline
+  const discData=[['Discipline','Author Category','Source Files','Worksets','Phases'],
+    ...savedDisc.map(r=>[r.discipline,r.authorCategory||'',(r.sourceFiles||[]).join('|'),(r.worksets||[]).join('|'),(r.phases||[]).join('|')])];
+  const wsDisc=XLSX.utils.aoa_to_sheet(discData);wsDisc['!cols']=[{wch:20},{wch:18},{wch:40},{wch:25},{wch:20}];
+  XLSX.utils.book_append_sheet(wb,wsDisc,'Discipline');
+  // Sheet 2: Model Authors
+  const authData=[['Source Files','Organisation Name'],...savedAuth.map(r=>[(r.sourceFiles||[]).join('|'),r.orgName||''])];
+  const wsAuth=XLSX.utils.aoa_to_sheet(authData);wsAuth['!cols']=[{wch:40},{wch:30}];
+  XLSX.utils.book_append_sheet(wb,wsAuth,'Model Authors');
+  // Sheet 3: Precinct
+  const precData=[['Precinct Name','Source Files'],...savedPrec.map(r=>[r.precinctName||'',(r.sourceFiles||[]).join('|')])];
+  const wsPrec=XLSX.utils.aoa_to_sheet(precData);wsPrec['!cols']=[{wch:25},{wch:40}];
+  XLSX.utils.book_append_sheet(wb,wsPrec,'Precinct');
+  // Sheet 4: QTO
+  const qtoData=[['Discipline','Sub Category','Sum Column','UoM Override']];
+  const tree=getQTOTree();
+  tree.forEach(mc=>{mc.subs.forEach(s=>{const saved=getQTOSavedSub(mc.discipline,s.name);qtoData.push([mc.discipline,s.name,saved?.sumColumn||'',saved?.uomOverride||'']);});});
+  const wsQTO=XLSX.utils.aoa_to_sheet(qtoData);wsQTO['!cols']=[{wch:20},{wch:30},{wch:25},{wch:15}];
+  XLSX.utils.book_append_sheet(wb,wsQTO,'QTO');
+  XLSX.writeFile(wb,'project_config_'+dateStr()+'.xlsx');
+  showToast('Config exported as 4-sheet xlsx','success');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MULTI-SELECT DROPDOWN
+// ══════════════════════════════════════════════════════════════════
+function getMsRow(rowId,ns){
+  const rows=ns==='disc'?discRows:ns==='auth'?authRows:precRows;
+  return rows.find(r=>r.id===rowId)||null;
+}
+function getMsRows(ns){return ns==='disc'?discRows:ns==='auth'?authRows:precRows;}
+
+function openMsDropdown(rowId,field,triggerEl,ns){
+  closeMsDropdown();
+  const row=getMsRow(rowId,ns);if(!row)return;
+  let items=[];
+  if(field==='sourceFiles')items=uniqueSFList.slice();
+  else if(field==='worksets')items=getUnionSet(row.sourceFiles,sfWorksets);
+  else if(field==='phases')items=getUnionSet(row.sourceFiles,sfPhases);
+  const allRows=getMsRows(ns);
+  const usedElsewhere=field==='sourceFiles'?new Set(allRows.filter(r=>r.id!==rowId).flatMap(r=>r.sourceFiles||[])):new Set();
+  const rect=triggerEl.getBoundingClientRect();
+  const dd=document.createElement('div');dd.className='ms-dd-portal';dd.id='msDDPortal';
+  const ddWidth=Math.max(rect.width,230);
+  let ddLeft=rect.left;if(ddLeft+ddWidth>window.innerWidth-6)ddLeft=window.innerWidth-ddWidth-6;
+  const ddTop=window.innerHeight-rect.bottom>250?rect.bottom+3:rect.top-260;
+  dd.style.cssText=`position:fixed;top:${ddTop}px;left:${ddLeft}px;width:${ddWidth}px;z-index:9990;`;
+  dd.innerHTML=buildMsDDContent(rowId,field,items,row[field]||[],usedElsewhere,'',ns);
+  document.body.appendChild(dd);triggerEl.classList.add('ms-open');
+  activeMsDropdown={rowId,field,el:dd,items,usedElsewhere,triggerEl,ns};
+  setTimeout(()=>{const inp=dd.querySelector('.ms-dd-search');if(inp)inp.focus();},20);
+}
+
+function buildMsDDContent(rowId,field,items,selected,usedElsewhere,q,ns){
+  const filtered=q?items.filter(i=>i.toLowerCase().includes(q.toLowerCase())):items;
+  const showAllRow=(field==='worksets'||field==='phases')&&!q;
+  const allIsActive=selected.length===0;
+  let listHtml='';
+  if(!items.length)listHtml=`<div class="ms-dd-empty">${field==='sourceFiles'?(reviztoRawRows.length?'No source files':'Load CSV first'):'No options'}</div>`;
+  else{
+    if(showAllRow)listHtml+=`<div class="ms-dd-item ms-all-row ${allIsActive?'ms-checked':''}" onclick="event.stopPropagation();selectAllMs(${rowId},'${field}','${ns}')"><span class="ms-dd-cb">${allIsActive?'☑':'☐'}</span><span class="ms-dd-label" style="font-weight:bold;color:${allIsActive?'#22c55e':'#94a3b8'};">— All (match everything) —</span></div><div style="border-top:1px solid #1e3a6e;margin:2px 0;"></div>`;
+    if(!filtered.length)listHtml+=`<div class="ms-dd-empty">No matches</div>`;
+    else listHtml+=filtered.map(item=>{const ri=items.indexOf(item);const isC=selected.includes(item);const isU=usedElsewhere.has(item);return`<div class="ms-dd-item ${isC?'ms-checked':''}" onclick="event.stopPropagation();toggleMsItem(${rowId},'${field}',${ri},this,'${ns}')" data-idx="${ri}"><span class="ms-dd-cb">${isC?'☑':'☐'}</span><span class="ms-dd-label" title="${esc(item)}">${esc(item)}</span>${isU?`<span class="ms-dd-used">🟢</span>`:''}</div>`;}).join('');
+  }
+  const countLabel=(field==='worksets'||field==='phases')&&selected.length===0?'All (no filter)':`${selected.length} selected`;
+  return`<div class="ms-dd-search-wrap"><input type="text" class="ms-dd-search" placeholder="🔍 Search ${field==='sourceFiles'?'files':field}…" value="${esc(q)}" oninput="filterMsDD(${rowId},'${field}',this.value,'${ns}')" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()"></div>
+    <div class="ms-dd-list" id="msDDList" onscroll="event.stopPropagation()">${listHtml}</div>
+    <div class="ms-dd-footer"><span class="ms-dd-count" id="msDDCount">${countLabel}</span>${usedElsewhere.size&&field==='sourceFiles'?`<span style="font-size:9px;color:#4b6a9e;">🟢 = used elsewhere</span>`:''}<span class="ms-dd-clear" onclick="event.stopPropagation();clearMsField(${rowId},'${field}','${ns}')">Clear all</span></div>`;
+}
+
+function filterMsDD(rowId,field,q,ns){
+  if(!activeMsDropdown)return;
+  const row=getMsRow(rowId,ns);if(!row)return;
+  const{items,usedElsewhere}=activeMsDropdown;const sel=row[field]||[];
+  const filtered=q?items.filter(i=>i.toLowerCase().includes(q.toLowerCase())):items;
+  const listEl=document.getElementById('msDDList');if(!listEl)return;
+  const showAllRow=(field==='worksets'||field==='phases')&&!q;const allIsActive=sel.length===0;
+  let html='';
+  if(showAllRow)html+=`<div class="ms-dd-item ms-all-row ${allIsActive?'ms-checked':''}" onclick="event.stopPropagation();selectAllMs(${rowId},'${field}','${ns}')"><span class="ms-dd-cb">${allIsActive?'☑':'☐'}</span><span class="ms-dd-label" style="font-weight:bold;color:${allIsActive?'#22c55e':'#94a3b8'};">— All (match everything) —</span></div><div style="border-top:1px solid #1e3a6e;margin:2px 0;"></div>`;
+  if(!filtered.length)html+=`<div class="ms-dd-empty">No matches</div>`;
+  else html+=filtered.map(item=>{const ri=items.indexOf(item);const isC=sel.includes(item);const isU=usedElsewhere.has(item);return`<div class="ms-dd-item ${isC?'ms-checked':''}" onclick="event.stopPropagation();toggleMsItem(${rowId},'${field}',${ri},this,'${ns}')" data-idx="${ri}"><span class="ms-dd-cb">${isC?'☑':'☐'}</span><span class="ms-dd-label" title="${esc(item)}">${esc(item)}</span>${isU?`<span class="ms-dd-used">🟢</span>`:''}</div>`;}).join('');
+  listEl.innerHTML=html;
+}
+
+function toggleMsItem(rowId,field,itemIdx,itemEl,ns){
+  if(!activeMsDropdown)return;
+  const row=getMsRow(rowId,ns);if(!row)return;
+  const items=activeMsDropdown.items;const item=items[itemIdx];if(item===undefined)return;
+  if(!row[field])row[field]=[];
+  const arr=row[field];const pos=arr.indexOf(item);
+  if(pos>=0){arr.splice(pos,1);itemEl.classList.remove('ms-checked');const cb=itemEl.querySelector('.ms-dd-cb');if(cb)cb.textContent='☐';}
+  else{arr.push(item);itemEl.classList.add('ms-checked');const cb=itemEl.querySelector('.ms-dd-cb');if(cb)cb.textContent='☑';}
+  if(field==='sourceFiles'&&ns==='disc'){row.worksets=[];row.phases=[];}
+  if(field==='sourceFiles'){
+    const newUsed=new Set(getMsRows(ns).filter(r=>r.id!==rowId).flatMap(r=>r.sourceFiles||[]));
+    activeMsDropdown.usedElsewhere=newUsed;
+    activeMsDropdown.el.querySelectorAll('.ms-dd-item').forEach(el=>{const idx=parseInt(el.dataset.idx);const val=items[idx];let dot=el.querySelector('.ms-dd-used');if(newUsed.has(val)){if(!dot){dot=document.createElement('span');dot.className='ms-dd-used';dot.textContent='🟢';el.appendChild(dot);}}else{if(dot)dot.remove();}});
+  }
+  const allRow=activeMsDropdown.el.querySelector('.ms-all-row');
+  if(allRow){const an=arr.length===0;allRow.classList.toggle('ms-checked',an);const cb=allRow.querySelector('.ms-dd-cb');if(cb)cb.textContent=an?'☑':'☐';const lbl=allRow.querySelector('.ms-dd-label');if(lbl)lbl.style.color=an?'#22c55e':'#94a3b8';}
+  updateMsTrigger(rowId,field,ns);
+  const countEl=document.getElementById('msDDCount');
+  if(countEl)countEl.textContent=(field==='worksets'||field==='phases')&&arr.length===0?'All (no filter)':`${arr.length} selected`;
+}
+function selectAllMs(rowId,field,ns){
+  const row=getMsRow(rowId,ns);if(!row)return;row[field]=[];
+  const listEl=document.getElementById('msDDList');if(!listEl)return;
+  listEl.querySelectorAll('.ms-dd-item:not(.ms-all-row)').forEach(el=>{el.classList.remove('ms-checked');const cb=el.querySelector('.ms-dd-cb');if(cb)cb.textContent='☐';});
+  const ar=listEl.querySelector('.ms-all-row');if(ar){ar.classList.add('ms-checked');const cb=ar.querySelector('.ms-dd-cb');if(cb)cb.textContent='☑';const lbl=ar.querySelector('.ms-dd-label');if(lbl)lbl.style.color='#22c55e';}
+  const cEl=document.getElementById('msDDCount');if(cEl)cEl.textContent='All (no filter)';
+  updateMsTrigger(rowId,field,ns);
+}
+function clearMsField(rowId,field,ns){
+  const row=getMsRow(rowId,ns);if(!row)return;row[field]=[];
+  if(field==='sourceFiles'&&ns==='disc'){row.worksets=[];row.phases=[];}
+  updateMsTrigger(rowId,field,ns);
+  const listEl=document.getElementById('msDDList');if(!listEl)return;
+  listEl.querySelectorAll('.ms-dd-item:not(.ms-all-row)').forEach(el=>{el.classList.remove('ms-checked');const cb=el.querySelector('.ms-dd-cb');if(cb)cb.textContent='☐';});
+  const ar=listEl.querySelector('.ms-all-row');if(ar){ar.classList.add('ms-checked');const cb=ar.querySelector('.ms-dd-cb');if(cb)cb.textContent='☑';const lbl=ar.querySelector('.ms-dd-label');if(lbl)lbl.style.color='#22c55e';}
+  const cEl=document.getElementById('msDDCount');if(cEl)cEl.textContent=(field==='worksets'||field==='phases')?'All (no filter)':'0 selected';
+}
+function closeMsDropdown(){if(activeMsDropdown){if(activeMsDropdown.triggerEl)activeMsDropdown.triggerEl.classList.remove('ms-open');activeMsDropdown.el.remove();activeMsDropdown=null;}}
+
+function buildMsTrigger(rowId,field,arr,placeholder,disabled,usedElsewhereSet,ns){
+  const dis=disabled?' ms-disabled':'';
+  let content;
+  if(!arr||!arr.length)content=`<span class="ms-placeholder">${placeholder}</span>`;
+  else content=arr.map(v=>{const isG=field==='sourceFiles'&&usedElsewhereSet&&usedElsewhereSet.has(v);return`<span class="ms-tag${isG?' ms-tag-green':''}">${esc(v)}</span>`;}).join('');
+  return`<div class="ms-trigger${dis}" data-row="${rowId}" data-field="${field}" data-ns="${ns}" onclick="event.stopPropagation();if(!this.classList.contains('ms-disabled'))openMsDropdown(${rowId},'${field}',this,'${ns}')">${content}</div>`;
+}
+function updateMsTrigger(rowId,field,ns){
+  const el=document.querySelector(`.ms-trigger[data-row="${rowId}"][data-field="${field}"][data-ns="${ns}"]`);if(!el)return;
+  const rows=getMsRows(ns);const row=rows.find(r=>r.id===rowId);if(!row)return;
+  const arr=row[field]||[];
+  const placeholder=field==='sourceFiles'?'-- Select File(s) --':field==='worksets'?(row.sourceFiles?.length?'— All Worksets —':'— Select First —'):(row.sourceFiles?.length?'— All Phases —':'— Select First —');
+  if(!arr.length)el.innerHTML=`<span class="ms-placeholder">${placeholder}</span>`;
+  else{const used=field==='sourceFiles'?new Set(getMsRows(ns).filter(r=>r.id!==rowId).flatMap(r=>r.sourceFiles||[])):new Set();el.innerHTML=arr.map(v=>{const isG=field==='sourceFiles'&&used.has(v);return`<span class="ms-tag${isG?' ms-tag-green':''}">${esc(v)}</span>`;}).join('');}
+  if(field==='sourceFiles'&&ns==='disc'){
+    const wsEl=document.querySelector(`.ms-trigger[data-row="${rowId}"][data-field="worksets"][data-ns="${ns}"]`);
+    const phEl=document.querySelector(`.ms-trigger[data-row="${rowId}"][data-field="phases"][data-ns="${ns}"]`);
+    if(arr.length){wsEl?.classList.remove('ms-disabled');phEl?.classList.remove('ms-disabled');}
+    else{if(wsEl){wsEl.classList.add('ms-disabled');wsEl.innerHTML=`<span class="ms-placeholder">— Select First —</span>`;}if(phEl){phEl.classList.add('ms-disabled');phEl.innerHTML=`<span class="ms-placeholder">— Select First —</span>`;}}
+    updateMsTrigger(rowId,'worksets',ns);updateMsTrigger(rowId,'phases',ns);
+  }
+}
+
+function buildStdSelect(field,id,val,options,handlerFn,placeholder){
+  const optHtml=[`<option value="">${placeholder}</option>`,...options.map(o=>`<option value="${esc(o)}" ${val===o?'selected':''}>${esc(o)}</option>`)].join('');
+  return`<select class="cfg-select" onchange="${handlerFn}(${id},'${field}',this.value)">${optHtml}</select>`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// BADGES
+// ══════════════════════════════════════════════════════════════════
+function updateDiscBadge(){const b=document.getElementById('cfgBadge');if(b)b.textContent=`${savedDisc.length} rule${savedDisc.length!==1?'s':''}`;}
+function updateAuthBadge(){const b=document.getElementById('authBadge');if(b)b.textContent=savedAuth.length?`${savedAuth.length} org${savedAuth.length!==1?'s':''}`:'0 orgs';}
+function updatePrecBadge(){const b=document.getElementById('precBadge');if(b)b.textContent=savedPrec.length?`${savedPrec.length} precinct${savedPrec.length!==1?'s':''}`:'not set';}
+function updateQTOBadge(){const b=document.getElementById('qtoBadge');if(b){const t=savedQTO.reduce((a,m)=>a+m.subs.length,0);b.textContent=savedQTO.length?`${savedQTO.length} disc · ${t} sub`:'not set';}}
+
+// ══════════════════════════════════════════════════════════════════
+// UTILITIES
+// ══════════════════════════════════════════════════════════════════
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function setText(id,val){const el=document.getElementById(id);if(el)el.textContent=val;}
+function dateStr(){return new Date().toISOString().slice(0,10);}
+function downloadString(str,filename,mime){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([str],{type:mime}));a.download=filename;a.click();}
+function showToast(msg,type='success'){const t=document.getElementById('toast');t.textContent=msg;t.className=`toast-${type}`;t.style.opacity='1';clearTimeout(t._timer);t._timer=setTimeout(()=>{t.style.opacity='0';},3200);}
+
+// ══════════════════════════════════════════════════════════════════
+// LOAD SAVED CONFIGS FROM LOCALSTORAGE
+// ══════════════════════════════════════════════════════════════════
+function loadSavedConfigs(){
+  try{const d=JSON.parse(localStorage.getItem('qto_disc_config')||'null');if(Array.isArray(d)&&d.length){savedDisc=d.map(r=>{if(!r.sourceFiles)r.sourceFiles=r.sourceFile?[r.sourceFile]:[];if(!r.worksets)r.worksets=(r.workset&&r.workset!=='All')?[r.workset]:[];if(!r.phases)r.phases=(r.phase&&r.phase!=='All')?[r.phase]:[];return r;});discRows=savedDisc.map(r=>({...r,sourceFiles:[...r.sourceFiles],worksets:[...r.worksets],phases:[...r.phases]}));discRowCtr=Math.max(0,...savedDisc.map(r=>r.id||0));updateDiscBadge();buildDisciplineChips();buildAuthorCatChips();}}catch(e){}
+  try{const a=JSON.parse(localStorage.getItem('qto_auth_config')||'null');if(Array.isArray(a)&&a.length){savedAuth=a;authRows=a.map(r=>({...r,sourceFiles:[...r.sourceFiles]}));authRowCtr=Math.max(0,...a.map(r=>r.id||0));updateAuthBadge();buildAuthorChips();}}catch(e){}
+  try{const p=JSON.parse(localStorage.getItem('qto_prec_config')||'null');if(Array.isArray(p)&&p.length){savedPrec=p;precRows=p.map(r=>({...r,sourceFiles:[...r.sourceFiles]}));precRowCtr=Math.max(0,...p.map(r=>r.id||0));updatePrecBadge();buildPrecinctChips();}}catch(e){}
+  try{const q=JSON.parse(localStorage.getItem('qto_qto_config')||'null');if(Array.isArray(q)&&q.length){savedQTO=q;updateQTOBadge();}}catch(e){}
+}
+
+// ══════════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded',()=>{
+  loadSavedConfigs();
+  ['discModal','authModal','precModal','qtoModal'].forEach(id=>{
+    document.getElementById(id).addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');});
+  });
+  document.addEventListener('click',function(e){
+    if(activeMsDropdown&&!activeMsDropdown.el.contains(e.target)&&!e.target.closest('.ms-trigger'))closeMsDropdown();
+  });
+  window.addEventListener('scroll',function(e){if(!activeMsDropdown)return;if(activeMsDropdown.el.contains(e.target))return;closeMsDropdown();},true);
+  window.addEventListener('resize',closeMsDropdown);
+});
+</script>
+</body>
+</html>
